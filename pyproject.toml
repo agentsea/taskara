@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "taskara"
+version = "0.1.0"
+description = "A task library for AI agents"
+authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
+license = "Apache 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+sqlalchemy = "^2.0.29"
+pydantic = "^2.6.4"
+threadmem = "^0.2.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
