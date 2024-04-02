@@ -52,3 +52,10 @@ class V1UserProfile(BaseModel):
     created: Optional[int] = None
     updated: Optional[int] = None
     token: Optional[str] = None
+
+
+class SolveTaskModel(BaseModel):
+    task: TaskModel
+    desktop_name: Optional[str] = None
+    max_steps: int = 20
+    site: Optional[str] = None
