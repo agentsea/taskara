@@ -13,8 +13,6 @@ class TaskRecord(Base):
     owner_id = Column(String, nullable=False)
     description = Column(String, nullable=False)
     url = Column(String, nullable=True)
-    thread_id = Column(String, nullable=False)
-    feed_id = Column(String, nullable=False)
     assigned_to = Column(String, nullable=True)
     status = Column(String, nullable=False)
     created = Column(Float, nullable=False)
@@ -22,7 +20,7 @@ class TaskRecord(Base):
     completed = Column(Float, nullable=False, default=0.0)
     error = Column(String, default="")
     output = Column(String, default="")
-    work_threads = Column(String, nullable=False)
+    threads = Column(String, nullable=False)
     version = Column(String, nullable=False)
 
 

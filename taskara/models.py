@@ -27,9 +27,7 @@ class TaskModel(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     description: str
     status: Optional[str] = None
-    thread: Optional[RoleThreadModel] = None
-    feed: Optional[RoleThreadModel] = None
-    work_threads: Optional[List[RoleThreadModel]] = None
+    threads: Optional[List[RoleThreadModel]] = None
     assigned_to: Optional[str] = None
     url: Optional[str] = None
     created: float = Field(default_factory=time.time)
