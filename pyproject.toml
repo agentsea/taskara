@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taskara"
-version = "0.1.2"
+version = "0.1.5"
 description = "Task management for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "Apache 2.0"
@@ -10,7 +10,7 @@ readme = "README.md"
 python = "^3.10"
 sqlalchemy = "^2.0.29"
 pydantic = "^2.6.4"
-threadmem = "^0.2.11"
+threadmem = "^0.2.12"
 
 
 [build-system]
