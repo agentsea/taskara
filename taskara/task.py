@@ -1,4 +1,3 @@
-from dataclasses import dataclass, field
 import uuid
 import time
 from typing import List, Optional, TypeVar
@@ -447,7 +446,7 @@ class Task(WithDB):
         if schema.threads:
             obj._threads = [RoleThread.from_schema(s) for s in schema.threads]
         else:
-            obj._threads = []
+            obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
 
         return obj
 
