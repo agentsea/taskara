@@ -137,22 +137,6 @@ class Task(WithDB):
         self._completed = value
 
     @property
-    def feed(self) -> RoleThread:
-        return self._feed
-
-    @feed.setter
-    def feed(self, value: RoleThread):
-        self._feed = value
-
-    @property
-    def thread(self) -> RoleThread:
-        return self._thread
-
-    @thread.setter
-    def thread(self, value: RoleThread):
-        self._thread = value
-
-    @property
     def threads(self) -> List[RoleThread]:
         return self._threads
 
@@ -200,7 +184,6 @@ class Task(WithDB):
             started=self._started,
             completed=self._completed,
             assigned_to=self._assigned_to,
-            feed_id=self._feed._id,
             error=self._error,
             output=self._output,
             threads=json.dumps([t._id for t in self._threads]),
