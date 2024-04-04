@@ -219,9 +219,9 @@ class Task(WithDB):
         metadata: Optional[dict] = None,
         thread: Optional[str] = None,
     ) -> None:
-        # print("\n!!posting message to thread: ", msg)
+        print(f"\nposting message to thread {thread}: ", msg)
         if hasattr(self, "_remote") and self._remote:
-            print("\n!posting msg to remote task", self._id)
+            print("\nposting msg to remote task", self._id)
             try:
                 data = {"msg": msg, "role": role, "images": images}
                 if thread:
@@ -229,7 +229,7 @@ class Task(WithDB):
                 self._remote_request(
                     self._remote,
                     "POST",
-                    f"/v1/tasks/{self._id}/msg",
+                    f"/v1/tasks/{self.id}/msg",
                     data,
                 )
                 return
@@ -241,15 +241,18 @@ class Task(WithDB):
             threads = RoleThread.find(id=thread)
             if threads:
                 thread: RoleThread = threads[0]
+                print("\nposting to local thread:", thread.id)
                 thread.post(role, msg, images, private, metadata)
                 return
             threads = RoleThread.find(name=thread)
             if threads:
                 thread: RoleThread = threads[0]
+                print("\nposting to local thread:", thread.id)
                 thread.post(role, msg, images, private, metadata)
                 return
             raise ValueError(f"Thread by name or id {thread} not found")
 
+        print("\nposting to default thread")
         self._threads[0].post(role, msg, images, private, metadata)
 
     def create_thread(
