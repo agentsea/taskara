@@ -243,7 +243,7 @@ class Task(WithDB):
                 thread: RoleThread = threads[0]
                 thread.post(role, msg, images, private, metadata)
                 return
-            threads = self.find(name=thread)
+            threads = RoleThread.find(name=thread)
             if threads:
                 thread: RoleThread = threads[0]
                 thread.post(role, msg, images, private, metadata)
