@@ -199,7 +199,6 @@ class Task(WithDB):
             created=self._created,
             started=self._started,
             completed=self._completed,
-            thread_id=self._thread._id,
             assigned_to=self._assigned_to,
             feed_id=self._feed._id,
             error=self._error,
@@ -279,21 +278,21 @@ class Task(WithDB):
         id: Optional[str] = None,
     ) -> None:
         if hasattr(self, "_remote") and self._remote:
-            print("creting remote work thread")
+            print("creting remote thread")
             self._remote_request(
                 self._remote,
                 "POST",
                 f"/v1/tasks/{self._id}/threads",
                 {"name": name, "public": public, "metadata": metadata, "id": id},
             )
-            print("removed remote work thread")
+            print("removed remote thread")
             return
 
-        print("creating local work thread")
+        print("creating thread")
         thread = RoleThread(self.owner_id, public, name, metadata)
         self._threads.append(thread)
         self.save()
-        print("created local work thread")
+        print("created local thread")
         return
 
     def remove_thread(self, thread_id: str) -> None:
