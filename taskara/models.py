@@ -8,14 +8,12 @@ from pydantic import BaseModel, Field
 
 class TaskCreateModel(BaseModel):
     description: str
-    url: Optional[str] = None
     assigned_to: Optional[str] = None
 
 
 class TaskUpdateModel(BaseModel):
     status: Optional[str] = None
     description: Optional[str] = None
-    url: Optional[str] = None
     error: Optional[str] = None
     output: Optional[str] = None
     assigned_to: Optional[str] = None
@@ -29,7 +27,6 @@ class TaskModel(BaseModel):
     status: Optional[str] = None
     threads: Optional[List[RoleThreadModel]] = None
     assigned_to: Optional[str] = None
-    url: Optional[str] = None
     created: float = Field(default_factory=time.time)
     started: float = 0.0
     completed: float = 0.0

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taskara"
-version = "0.1.11"
+version = "0.1.12"
 description = "Task management for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "Apache 2.0"
@@ -12,6 +12,9 @@ sqlalchemy = "^2.0.29"
 pydantic = "^2.6.4"
 threadmem = "^0.2.12"
 
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
 
 [build-system]
 requires = ["poetry-core"]

@@ -6,7 +6,7 @@ import os
 import json
 import hashlib
 
-from threadmem import RoleThread
+from threadmem import RoleThread, RoleMessage
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
@@ -47,15 +47,14 @@ class Task(WithDB):
         self._error = error
         self._output = output
         self._remote = remote
-        self._version = version if version is not None else self.generate_version_hash()
 
         self._threads = []
         self.create_thread("feed")
         if threads:
             self._threads.extend(threads)
 
-        if not self._version:
-            self._version = self.generate_version_hash()
+        self._version = version if version is not None else self.generate_version_hash()
+
         if not self._remote and not self._description:
             raise ValueError("Task must have a description or a remote task")
         if self._remote:
@@ -94,14 +93,6 @@ class Task(WithDB):
     @owner_id.setter
     def owner_id(self, value: Optional[str]):
         self._owner_id = value
-
-    @property
-    def url(self) -> Optional[str]:
-        return self._url
-
-    @url.setter
-    def url(self, value: Optional[str]):
-        self._url = value
 
     @property
     def status(self) -> str:
@@ -173,11 +164,13 @@ class Task(WithDB):
         return hash_version
 
     def to_record(self) -> TaskRecord:
+        version = None
+        if hasattr(self, "_version"):
+            version = self._version
         return TaskRecord(
             id=self._id,
             owner_id=self._owner_id,
             description=self._description,
-            url=self._url,
             status=self._status,
             created=self._created,
             started=self._started,
@@ -186,7 +179,7 @@ class Task(WithDB):
             error=self._error,
             output=self._output,
             threads=json.dumps([t._id for t in self._threads]),
-            version=self._version,
+            version=version,
         )
 
     @classmethod
@@ -198,7 +191,6 @@ class Task(WithDB):
         obj._id = record.id
         obj._owner_id = record.owner_id
         obj._description = record.description
-        obj._url = record.url
         obj._status = record.status
         obj._created = record.created
         obj._started = record.started
@@ -237,23 +229,18 @@ class Task(WithDB):
                 print("failed to post message to remote: ", e)
                 raise
 
-        if thread:
-            threads = RoleThread.find(id=thread)
-            if threads:
-                thread: RoleThread = threads[0]
-                print("\nposting to local thread:", thread.id)
-                thread.post(role, msg, images, private, metadata)
-                return
-            threads = RoleThread.find(name=thread)
-            if threads:
-                thread: RoleThread = threads[0]
-                print("\nposting to local thread:", thread.id)
-                thread.post(role, msg, images, private, metadata)
-                return
-            raise ValueError(f"Thread by name or id {thread} not found")
+        if not thread:
+            thread = "feed"
 
-        print("\nposting to default thread")
-        self._threads[0].post(role, msg, images, private, metadata)
+        print("finding local thread...")
+        for thrd in self._threads:
+            print("checking thread: ", thrd.name, thrd.id)
+            if thrd.id == thread or thrd.name == thread:
+                print("found local thread")
+                thrd.post(role, msg, images, private, metadata)
+                return
+
+        raise ValueError(f"Thread by name or id '{thread}' not found")
 
     def create_thread(
         self,
@@ -294,6 +281,16 @@ class Task(WithDB):
 
         self._threads = [t for t in self._threads if t._id != thread_id]
         self.save()
+
+    def messages(self, thread: Optional[str] = None) -> List[RoleMessage]:
+        if not thread:
+            thread = "feed"
+
+        for thrd in self._threads:
+            if thrd.name == thread:
+                return thrd.messages()
+
+        raise ValueError(f"Thread {thread} not found")
 
     def save(self) -> None:
         print("\n!saving task", self._id)
@@ -342,9 +339,10 @@ class Task(WithDB):
                 print("\ncreated new task", self._id)
         else:
             print("\n!saving local db task", self._id)
-            if self._version != new_version:
-                self._version = new_version
-                print(f"Version updated to {self._version}")
+            if hasattr(self, "_version"):
+                if self._version != new_version:
+                    self._version = new_version
+                    print(f"Version updated to {self._version}")
 
             for db in self.get_db():
                 db.merge(self.to_record())
@@ -398,10 +396,13 @@ class Task(WithDB):
                     db.commit()
 
     def to_schema(self) -> TaskModel:
+        version = None
+        if hasattr(self, "_version"):
+            version = self._version
+
         return TaskModel(
             id=self._id,
             description=self._description,
-            url=self._url,
             threads=[t.to_schema() for t in self._threads],
             status=self._status,
             created=self._created,
@@ -410,13 +411,12 @@ class Task(WithDB):
             assigned_to=self._assigned_to,
             error=self._error,
             output=self._output,
-            version=self._version,
+            version=version,
         )
 
     def to_update_schema(self) -> TaskUpdateModel:
         return TaskUpdateModel(
             description=self._description,
-            url=self._url,
             status=self._status,
             assigned_to=self._assigned_to,
             error=self._error,
@@ -435,7 +435,6 @@ class Task(WithDB):
         obj._id = schema.id if schema.id else str(uuid.uuid4())
         obj._owner_id = owner_id
         obj._description = schema.description
-        obj._url = schema.url
         obj._status = schema.status if schema.status else "defined"
         obj._created = schema.created
         obj._started = schema.started
@@ -466,7 +465,6 @@ class Task(WithDB):
                 if remote_task:
                     schema = TaskModel(**remote_task)
                     self._description = schema.description
-                    self._url = schema.url
                     self._status = schema.status if schema.status else "defined"
                     self._created = schema.created
                     self._started = schema.started
@@ -475,9 +473,10 @@ class Task(WithDB):
                     self._error = schema.error
                     self._output = schema.output
                     self._version = schema.version
-                    self._threads = [
-                        RoleThread.from_schema(wt) for wt in schema.threads
-                    ]
+                    if schema.threads:
+                        self._threads = [
+                            RoleThread.from_schema(wt) for wt in schema.threads
+                        ]
                     print("\nrefreshed remote task", self._id)
             except requests.RequestException as e:
                 raise e
