@@ -58,7 +58,13 @@ class DeviceModel(BaseModel):
     config: BaseModel
 
 
+class AgentModel(BaseModel):
+    name: str
+    config: BaseModel
+
+
 class SolveTaskModel(BaseModel):
     task: TaskModel
     device: Optional[DeviceModel] = None
+    agent: Optional[AgentModel] = None
     max_steps: int = 30
