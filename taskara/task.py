@@ -444,6 +444,7 @@ class Task(WithDB):
             parameters=self._parameters,
             version=version,
             remote=self._remote,
+            owner_id=self._owner_id,
         )
 
     def to_update_schema(self) -> TaskUpdateModel:
@@ -459,8 +460,12 @@ class Task(WithDB):
         )
 
     @classmethod
-    def from_schema(cls, schema: TaskModel, owner_id: str) -> "Task":
+    def from_schema(cls, schema: TaskModel, owner_id: Optional[str] = None) -> "Task":
         obj = cls.__new__(cls)  # Create a new instance without calling __init__
+
+        owner_id = owner_id if owner_id else schema.owner_id
+        if not owner_id:
+            raise ValueError("Owner id is required in schema or as parameter")
 
         # Manually set attributes on the object
         obj._id = schema.id if schema.id else str(uuid.uuid4())
@@ -478,6 +483,7 @@ class Task(WithDB):
         obj._remote = schema.remote
         obj._parameters = schema.parameters
         obj._remote = schema.remote
+        obj._owner_id = owner_id
 
         if schema.threads:
             obj._threads = [RoleThread.from_schema(s) for s in schema.threads]

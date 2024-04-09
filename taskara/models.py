@@ -37,6 +37,7 @@ class TaskModel(BaseModel):
     parameters: Optional[Dict[str, Any]] = {}
     version: Optional[str] = None
     remote: Optional[str] = None
+    owner_id: Optional[str] = None
 
 
 class TasksModel(BaseModel):
