@@ -55,3 +55,4 @@ class V1UserProfile(BaseModel):
 class SolveTaskModel(BaseModel):
     task: TaskModel
     device: Optional[str] = None
+    max_steps: int = 30
