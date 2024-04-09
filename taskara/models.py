@@ -14,6 +14,7 @@ class TaskCreateModel(BaseModel):
 class TaskUpdateModel(BaseModel):
     status: Optional[str] = None
     description: Optional[str] = None
+    max_steps: Optional[int] = None
     error: Optional[str] = None
     output: Optional[str] = None
     assigned_to: Optional[str] = None
@@ -24,6 +25,7 @@ class TaskUpdateModel(BaseModel):
 class TaskModel(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     description: str
+    max_steps: int = 30
     status: Optional[str] = None
     threads: Optional[List[RoleThreadModel]] = None
     assigned_to: Optional[str] = None
@@ -52,6 +54,4 @@ class V1UserProfile(BaseModel):
 
 class SolveTaskModel(BaseModel):
     task: TaskModel
-    desktop_name: Optional[str] = None
-    max_steps: int = 20
-    site: Optional[str] = None
+    device: Optional[str] = None

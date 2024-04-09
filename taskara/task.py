@@ -23,6 +23,7 @@ class Task(WithDB):
     def __init__(
         self,
         description: Optional[str] = None,
+        max_steps: int = 30,
         owner_id: Optional[str] = None,
         id: Optional[str] = None,
         status: str = "defined",
@@ -39,6 +40,7 @@ class Task(WithDB):
     ):
         self._id = id if id is not None else str(uuid.uuid4())
         self._description = description
+        self._max_steps = max_steps
         self._owner_id = owner_id
         self._status = status
         self._created = created if created is not None else time.time()
@@ -87,6 +89,14 @@ class Task(WithDB):
     @description.setter
     def description(self, value: Optional[str]):
         self._description = value
+
+    @property
+    def max_steps(self) -> int:
+        return self._max_steps
+
+    @max_steps.setter
+    def max_steps(self, value: int):
+        self._max_steps = value
 
     @property
     def owner_id(self) -> Optional[str]:
@@ -173,6 +183,7 @@ class Task(WithDB):
             id=self._id,
             owner_id=self._owner_id,
             description=self._description,
+            max_steps=self._max_steps,
             status=self._status,
             created=self._created,
             started=self._started,
@@ -196,6 +207,7 @@ class Task(WithDB):
         obj._id = record.id
         obj._owner_id = record.owner_id
         obj._description = record.description
+        obj._max_steps = record.max_steps
         obj._status = record.status
         obj._created = record.created
         obj._started = record.started
@@ -412,6 +424,7 @@ class Task(WithDB):
         return TaskModel(
             id=self._id,
             description=self._description if self._description else "",
+            max_steps=self._max_steps,
             threads=[t.to_schema() for t in self._threads],
             status=self._status,
             created=self._created,
@@ -427,6 +440,7 @@ class Task(WithDB):
     def to_update_schema(self) -> TaskUpdateModel:
         return TaskUpdateModel(
             description=self._description,
+            max_steps=self._max_steps,
             status=self._status,
             assigned_to=self._assigned_to,
             error=self._error,
@@ -445,6 +459,7 @@ class Task(WithDB):
         obj._id = schema.id if schema.id else str(uuid.uuid4())
         obj._owner_id = owner_id
         obj._description = schema.description
+        obj.max_steps = schema.max_steps
         obj._status = schema.status if schema.status else "defined"
         obj._created = schema.created
         obj._started = schema.started
@@ -476,6 +491,7 @@ class Task(WithDB):
                 if remote_task:
                     schema = TaskModel(**remote_task)
                     self._description = schema.description
+                    self._max_steps = schema.max_steps
                     self._status = schema.status if schema.status else "defined"
                     self._created = schema.created
                     self._started = schema.started

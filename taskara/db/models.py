@@ -12,6 +12,7 @@ class TaskRecord(Base):
     id = Column(String, primary_key=True)
     owner_id = Column(String, nullable=False)
     description = Column(String, nullable=False)
+    max_steps = Column(Integer, nullable=False, default=30)
     assigned_to = Column(String, nullable=True)
     status = Column(String, nullable=False)
     created = Column(Float, nullable=False)
