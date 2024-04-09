@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import uuid
 import time
 
@@ -30,8 +30,9 @@ class TaskModel(BaseModel):
     created: float = Field(default_factory=time.time)
     started: float = 0.0
     completed: float = 0.0
-    error: str = ""
-    output: str = ""
+    error: Optional[str] = None
+    output: Optional[str] = None
+    parameters: Optional[Dict[str, Any]] = {}
     version: Optional[str] = None
 
 

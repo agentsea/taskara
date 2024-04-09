@@ -1,6 +1,6 @@
 import uuid
 import time
-from typing import List, Optional, TypeVar
+from typing import List, Optional, TypeVar, Any, Dict
 import requests
 import os
 import json
@@ -24,15 +24,16 @@ class Task(WithDB):
         self,
         description: Optional[str] = None,
         owner_id: Optional[str] = None,
-        id: str = None,
+        id: Optional[str] = None,
         status: str = "defined",
-        created: float = None,
+        created: Optional[float] = None,
         started: float = 0.0,
         completed: float = 0.0,
         threads: List[RoleThread] = [],
         assigned_to: Optional[str] = None,
-        error: str = "",
-        output: str = "",
+        error: Optional[str] = None,
+        output: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = {},
         remote: Optional[str] = None,
         version: Optional[str] = None,
     ):
@@ -46,6 +47,7 @@ class Task(WithDB):
         self._assigned_to = assigned_to
         self._error = error
         self._output = output
+        self._parameters = parameters
         self._remote = remote
 
         self._threads = []
@@ -71,7 +73,7 @@ class Task(WithDB):
             print("\nrefreshed tasks")
             print("\ntask: ", self.__dict__)
         else:
-            self._remote = False
+            self._remote = None
             self.save()
 
     @property
@@ -143,7 +145,7 @@ class Task(WithDB):
         self._assigned_to = value
 
     @property
-    def error(self) -> str:
+    def error(self) -> Optional[str]:
         return self._error
 
     @error.setter
@@ -151,10 +153,10 @@ class Task(WithDB):
         self._error = value
 
     @property
-    def output(self) -> str:
+    def output(self) -> Optional[str]:
         return self._output
 
-    @error.setter
+    @output.setter
     def output(self, value: str):
         self._output = value
 
@@ -179,13 +181,16 @@ class Task(WithDB):
             error=self._error,
             output=self._output,
             threads=json.dumps([t._id for t in self._threads]),
+            parameters=json.dumps(self._parameters),
             version=version,
         )
 
     @classmethod
     def from_record(cls, record: TaskRecord) -> "Task":
-        thread_ids = json.loads(record.threads)
+        thread_ids = json.loads(str(record.threads))
         threads = [RoleThread.find(id=thread_id)[0] for thread_id in thread_ids]
+
+        parameters = json.loads(str(record.parameters))
 
         obj = cls.__new__(cls)
         obj._id = record.id
@@ -200,6 +205,7 @@ class Task(WithDB):
         obj._output = record.output
         obj._threads = threads
         obj._version = record.version
+        obj._parameters = parameters
         return obj
 
     def post_message(
@@ -365,6 +371,8 @@ class Task(WithDB):
                     task._remote = remote
                     print("\nreturning task: ", task.__dict__)
                 return out
+            else:
+                return []
         else:
             for db in cls.get_db():
                 records = (
@@ -374,6 +382,7 @@ class Task(WithDB):
                     .all()
                 )
                 return [cls.from_record(record) for record in records]
+            raise ValueError("No session")
 
     def update(self, **kwargs) -> None:
         for key, value in kwargs.items():
@@ -384,7 +393,7 @@ class Task(WithDB):
 
     @classmethod
     def delete(cls, id: str, owner_id: str, remote: Optional[str] = None) -> None:
-        if cls._remote:
+        if remote:
             cls._remote_request(remote, "DELETE", f"/v1/tasks/{id}")
         else:
             for db in cls.get_db():
@@ -402,7 +411,7 @@ class Task(WithDB):
 
         return TaskModel(
             id=self._id,
-            description=self._description,
+            description=self._description if self._description else "",
             threads=[t.to_schema() for t in self._threads],
             status=self._status,
             created=self._created,
@@ -411,6 +420,7 @@ class Task(WithDB):
             assigned_to=self._assigned_to,
             error=self._error,
             output=self._output,
+            parameters=self._parameters,
             version=version,
         )
 
@@ -444,6 +454,7 @@ class Task(WithDB):
         obj._output = schema.output
         obj._version = schema.version
         obj._remote = remote
+        obj._parameters = schema.parameters
 
         if schema.threads:
             obj._threads = [RoleThread.from_schema(s) for s in schema.threads]
@@ -473,6 +484,7 @@ class Task(WithDB):
                     self._error = schema.error
                     self._output = schema.output
                     self._version = schema.version
+                    self._parameters = schema.parameters
                     if schema.threads:
                         self._threads = [
                             RoleThread.from_schema(wt) for wt in schema.threads
@@ -485,13 +497,13 @@ class Task(WithDB):
 
     @classmethod
     def _remote_request(
-        self,
+        cls,
         addr: str,
         method: str,
         endpoint: str,
         json_data: Optional[dict] = None,
         auth_token: Optional[str] = None,
-    ) -> Optional[List[T]]:
+    ) -> Any:
         url = f"{addr}{endpoint}"
         headers = {}
         if not auth_token:
