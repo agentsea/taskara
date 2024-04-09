@@ -53,7 +53,12 @@ class V1UserProfile(BaseModel):
     token: Optional[str] = None
 
 
+class DeviceModel(BaseModel):
+    name: str
+    config: BaseModel
+
+
 class SolveTaskModel(BaseModel):
     task: TaskModel
-    device: Optional[str] = None
+    device: Optional[DeviceModel] = None
     max_steps: int = 30
