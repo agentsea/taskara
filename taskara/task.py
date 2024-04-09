@@ -451,9 +451,7 @@ class Task(WithDB):
         )
 
     @classmethod
-    def from_schema(
-        cls, schema: TaskModel, owner_id: str, remote: bool = False
-    ) -> "Task":
+    def from_schema(cls, schema: TaskModel, owner_id: str) -> "Task":
         obj = cls.__new__(cls)  # Create a new instance without calling __init__
 
         # Manually set attributes on the object
@@ -469,7 +467,7 @@ class Task(WithDB):
         obj._error = schema.error
         obj._output = schema.output
         obj._version = schema.version
-        obj._remote = remote
+        obj._remote = schema.remote
         obj._parameters = schema.parameters
         obj._remote = schema.remote
 
