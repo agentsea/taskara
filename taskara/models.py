@@ -36,6 +36,7 @@ class TaskModel(BaseModel):
     output: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = {}
     version: Optional[str] = None
+    remote: Optional[str] = None
 
 
 class TasksModel(BaseModel):

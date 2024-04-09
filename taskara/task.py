@@ -435,6 +435,7 @@ class Task(WithDB):
             output=self._output,
             parameters=self._parameters,
             version=version,
+            remote=self._remote,
         )
 
     def to_update_schema(self) -> TaskUpdateModel:
@@ -470,6 +471,7 @@ class Task(WithDB):
         obj._version = schema.version
         obj._remote = remote
         obj._parameters = schema.parameters
+        obj._remote = schema.remote
 
         if schema.threads:
             obj._threads = [RoleThread.from_schema(s) for s in schema.threads]
