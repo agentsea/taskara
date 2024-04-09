@@ -170,6 +170,14 @@ class Task(WithDB):
     def output(self, value: str):
         self._output = value
 
+    @property
+    def remote(self) -> Optional[str]:
+        return self._remote
+
+    @remote.setter
+    def remote(self, value: str):
+        self._remote = value
+
     def generate_version_hash(self) -> str:
         task_data = json.dumps(self.to_schema().model_dump(), sort_keys=True)
         hash_version = hashlib.sha256(task_data.encode("utf-8")).hexdigest()
