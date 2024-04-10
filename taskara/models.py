@@ -4,6 +4,7 @@ import time
 
 from threadmem.server.models import RoleThreadModel
 from pydantic import BaseModel, Field
+from devicebay.models import DeviceModel
 
 
 class TaskCreateModel(BaseModel):
@@ -52,11 +53,6 @@ class V1UserProfile(BaseModel):
     created: Optional[int] = None
     updated: Optional[int] = None
     token: Optional[str] = None
-
-
-class DeviceModel(BaseModel):
-    name: str
-    config: BaseModel
 
 
 class AgentModel(BaseModel):
