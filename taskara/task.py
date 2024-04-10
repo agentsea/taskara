@@ -293,6 +293,19 @@ class Task(WithDB):
         print("created local thread")
         return
 
+    def ensure_thread(
+        self,
+        name: Optional[str] = None,
+        public: bool = False,
+        metadata: Optional[dict] = None,
+        id: Optional[str] = None,
+    ) -> None:
+        for thread in self.threads:
+            if thread.name == name:
+                return None
+
+        self.create_thread(name, public, metadata, id)
+
     def remove_thread(self, thread_id: str) -> None:
         if hasattr(self, "_remote") and self._remote:
             print("removing remote thread")
