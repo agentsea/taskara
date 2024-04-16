@@ -64,7 +64,7 @@ class Task(WithDB):
         if self._remote:
             if not self._id:
                 raise ValueError("ID must be set for remote tasks")
-            print("\n!calling remote task", self._id)
+            # print("\n!calling remote task", self._id)
             existing_task = self._remote_request(
                 self._remote, "GET", f"/v1/tasks/{self._id}"
             )
@@ -72,8 +72,8 @@ class Task(WithDB):
                 raise ValueError("Remote task not found")
             # print("\nfound existing task", existing_task)
             self.refresh()
-            print("\nrefreshed tasks")
-            print("\ntask: ", self.__dict__)
+            # print("\nrefreshed tasks")
+            # print("\ntask: ", self.__dict__)
         else:
             self._remote = None
             self.save()
@@ -237,9 +237,9 @@ class Task(WithDB):
         metadata: Optional[dict] = None,
         thread: Optional[str] = None,
     ) -> None:
-        print(f"\nposting message to thread {thread}: ", msg)
+        # print(f"\nposting message to thread {thread}: ", msg)
         if hasattr(self, "_remote") and self._remote:
-            print("\nposting msg to remote task", self._id)
+            # print("\nposting msg to remote task", self._id)
             try:
                 data = {"msg": msg, "role": role, "images": images}
                 if thread:
@@ -258,11 +258,11 @@ class Task(WithDB):
         if not thread:
             thread = "feed"
 
-        print("finding local thread...")
+        # print("finding local thread...")
         for thrd in self._threads:
-            print("checking thread: ", thrd.name, thrd.id)
+            # print("checking thread: ", thrd.name, thrd.id)
             if thrd.id == thread or thrd.name == thread:
-                print("found local thread")
+                # print("found local thread")
                 thrd.post(role, msg, images, private, metadata)
                 return
 
@@ -276,21 +276,21 @@ class Task(WithDB):
         id: Optional[str] = None,
     ) -> None:
         if hasattr(self, "_remote") and self._remote:
-            print("creting remote thread")
+            # print("creting remote thread")
             self._remote_request(
                 self._remote,
                 "POST",
                 f"/v1/tasks/{self._id}/threads",
                 {"name": name, "public": public, "metadata": metadata, "id": id},
             )
-            print("removed remote thread")
+            # print("removed remote thread")
             return
 
-        print("creating thread")
+        # print("creating thread")
         thread = RoleThread(self.owner_id, public, name, metadata)
         self._threads.append(thread)
         self.save()
-        print("created local thread")
+        # print("created local thread")
         return
 
     def ensure_thread(
@@ -308,14 +308,14 @@ class Task(WithDB):
 
     def remove_thread(self, thread_id: str) -> None:
         if hasattr(self, "_remote") and self._remote:
-            print("removing remote thread")
+            # print("removing remote thread")
             self._remote_request(
                 self._remote,
                 "DELETE",
                 f"/v1/tasks/{self._id}/threads",
                 {"id": thread_id},
             )
-            print("removed remote thread")
+            # print("removed remote thread")
             return
 
         self._threads = [t for t in self._threads if t._id != thread_id]
@@ -332,12 +332,12 @@ class Task(WithDB):
         raise ValueError(f"Thread {thread} not found")
 
     def save(self) -> None:
-        print("\n!saving task", self._id)
+        # print("\n!saving task", self._id)
         # Generate the new version hash
         new_version = self.generate_version_hash()
 
         if hasattr(self, "_remote") and self._remote:
-            print("\n!saving remote task", self._id)
+            # print("\n!saving remote task", self._id)
             try:
                 existing_task = self._remote_request(
                     self._remote, "GET", f"/v1/tasks/{self._id}"
@@ -345,16 +345,15 @@ class Task(WithDB):
                 # print("\nfound existing task", existing_task)
 
                 if existing_task["version"] != self._version:
-                    print(
-                        "WARNING: current task version is different from remote, you could be overriding changes"
-                    )
+                    pass
+                    # print("WARNING: current task version is different from remote, you could be overriding changes")
             except:
                 existing_task = None
             if existing_task:
                 # print("\nupdating existing task", existing_task)
                 if self._version != new_version:
                     self._version = new_version
-                    print(f"Version updated to {self._version}")
+                    # print(f"Version updated to {self._version}")
 
                 self._remote_request(
                     self._remote,
@@ -362,12 +361,12 @@ class Task(WithDB):
                     f"/v1/tasks/{self._id}",
                     json_data=self.to_update_schema().model_dump(),
                 )
-                print("\nupdated existing task", self._id)
+                # print("\nupdated existing task", self._id)
             else:
-                print("\ncreating new task", self._id)
+                # print("\ncreating new task", self._id)
                 if self._version != new_version:
                     self._version = new_version
-                    print(f"Version updated to {self._version}")
+                    # print(f"Version updated to {self._version}")
 
                 self._remote_request(
                     self._remote,
@@ -375,13 +374,13 @@ class Task(WithDB):
                     "/v1/tasks",
                     json_data=self.to_schema().model_dump(),
                 )
-                print("\ncreated new task", self._id)
+                # print("\ncreated new task", self._id)
         else:
-            print("\n!saving local db task", self._id)
+            # print("\n!saving local db task", self._id)
             if hasattr(self, "_version"):
                 if self._version != new_version:
                     self._version = new_version
-                    print(f"Version updated to {self._version}")
+                    # print(f"Version updated to {self._version}")
 
             for db in self.get_db():
                 db.merge(self.to_record())
@@ -390,7 +389,7 @@ class Task(WithDB):
     @classmethod
     def find(cls, remote: Optional[str] = None, **kwargs) -> List["Task"]:
         if remote:
-            print("finding remote tasks for: ", remote, kwargs["owner_id"])
+            # print("finding remote tasks for: ", remote, kwargs["owner_id"])
             remote_response = cls._remote_request(
                 remote, "GET", "/v1/tasks", json_data={**kwargs, "sort": "created_desc"}
             )
@@ -402,7 +401,7 @@ class Task(WithDB):
                 ]
                 for task in out:
                     task._remote = remote
-                    print("\nreturning task: ", task.__dict__)
+                    # print("\nreturning task: ", task.__dict__)
                 return out
             else:
                 return []
@@ -506,9 +505,9 @@ class Task(WithDB):
         return obj
 
     def refresh(self, auth_token: Optional[str] = None) -> None:
-        print("\n!refreshing task", self._id)
+        # print("\nrefreshing task", self._id)
         if hasattr(self, "_remote") and self._remote:
-            print("\n!refreshing remote task", self._id)
+            # print("\nrefreshing remote task", self._id)
             try:
 
                 remote_task = self._remote_request(
@@ -532,7 +531,7 @@ class Task(WithDB):
                         self._threads = [
                             RoleThread.from_schema(wt) for wt in schema.threads
                         ]
-                    print("\nrefreshed remote task", self._id)
+                    # print("\nrefreshed remote task", self._id)
             except requests.RequestException as e:
                 raise e
         else:
@@ -553,23 +552,23 @@ class Task(WithDB):
             auth_token = os.getenv(HUB_API_KEY_ENV)
             if not auth_token:
                 raise Exception(f"Hub API key not found, set ${HUB_API_KEY_ENV}")
-        print(f"\n!auth_token: {auth_token}")
+        # print(f"\n!auth_token: {auth_token}")
         headers["Authorization"] = f"Bearer {auth_token}"
         try:
             if method.upper() == "GET":
-                print("\ncalling remote task GET with url: ", url)
+                # print("\ncalling remote task GET with url: ", url)
                 # print("\ncalling remote task GET with headers: ", headers)
                 response = requests.get(url, headers=headers)
             elif method.upper() == "POST":
-                print("\ncalling remote task POST with: ", url)
+                # print("\ncalling remote task POST with: ", url)
                 # print("\ncalling remote task POST with headers: ", headers)
                 response = requests.post(url, json=json_data, headers=headers)
             elif method.upper() == "PUT":
-                print("\ncalling remote task PUT with: ", url)
+                # print("\ncalling remote task PUT with: ", url)
                 # print("\ncalling remote task PUT with headers: ", headers)
                 response = requests.put(url, json=json_data, headers=headers)
             elif method.upper() == "DELETE":
-                print("\ncalling remote task DELETE with: ", url)
+                # print("\ncalling remote task DELETE with: ", url)
                 # print("\ncalling remote task DELETE with headers: ", headers)
                 response = requests.delete(url, headers=headers)
             else:
@@ -586,7 +585,7 @@ class Task(WithDB):
                     print("Raw Response:", response.text)
                 raise
             # print("\nresponse: ", response.__dict__)
-            print("\response.status_code: ", response.status_code)
+            # print("\response.status_code: ", response.status_code)
 
             try:
                 response_json = response.json()
