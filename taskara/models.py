@@ -7,11 +7,6 @@ from pydantic import BaseModel, Field
 from devicebay.models import DeviceModel
 
 
-class TaskCreateModel(BaseModel):
-    description: str
-    assigned_to: Optional[str] = None
-
-
 class TaskUpdateModel(BaseModel):
     status: Optional[str] = None
     description: Optional[str] = None
