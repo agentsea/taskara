@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taskara"
-version = "0.1.27"
+version = "0.1.28"
 description = "Task management for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "MIT"
@@ -13,10 +13,12 @@ pydantic = "^2.6.4"
 devicebay = "^0.1.8"
 threadmem = "^0.2.15"
 
-
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+lint = "scripts.lint:main"

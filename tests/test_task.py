@@ -1,4 +1,3 @@
-import pytest
 from taskara import Task
 from threadmem import RoleThread
 

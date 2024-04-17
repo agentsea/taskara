@@ -1,8 +1,6 @@
 from sqlalchemy import Column, String, Float, Integer
 from sqlalchemy.orm import declarative_base
 
-from ..models import V1UserProfile
-
 Base = declarative_base()
 
 

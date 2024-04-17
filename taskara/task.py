@@ -347,7 +347,7 @@ class Task(WithDB):
                 if existing_task["version"] != self._version:
                     pass
                     # print("WARNING: current task version is different from remote, you could be overriding changes")
-            except:
+            except Exception:
                 existing_task = None
             if existing_task:
                 # print("\nupdating existing task", existing_task)
