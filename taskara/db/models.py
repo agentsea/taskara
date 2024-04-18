@@ -21,14 +21,3 @@ class TaskRecord(Base):
     threads = Column(String, nullable=False)
     parameters = Column(String, nullable=True)
     version = Column(String, nullable=True)
-
-
-class UserRecord(Base):
-    __tablename__ = "users"
-
-    email = Column(String, unique=True, index=True, primary_key=True)
-    display_name = Column(String)
-    handle = Column(String)
-    picture = Column(String)
-    created = Column(Integer)
-    updated = Column(Integer)

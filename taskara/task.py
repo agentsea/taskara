@@ -1,6 +1,7 @@
 import uuid
 import time
 from typing import List, Optional, TypeVar, Any, Dict
+from pytest import param
 import requests
 import os
 import json
@@ -133,6 +134,14 @@ class Task(WithDB):
         self._started = value
 
     @property
+    def parameters(self) -> Optional[Dict[str, Any]]:
+        return self._parameters
+
+    @parameters.setter
+    def parameters(self, value: Dict[str, Any]):
+        self._parameters = value
+
+    @property
     def completed(self) -> float:
         return self._completed
 
@@ -228,6 +237,7 @@ class Task(WithDB):
         obj._threads = threads
         obj._version = record.version
         obj._parameters = parameters
+        obj._remote = None
         return obj
 
     def post_message(
@@ -443,6 +453,10 @@ class Task(WithDB):
         if hasattr(self, "_version"):
             version = self._version
 
+        remote = None
+        if hasattr(self, "_remote"):
+            remote = self._remote
+
         return TaskModel(
             id=self._id,
             description=self._description if self._description else "",
@@ -457,7 +471,7 @@ class Task(WithDB):
             output=self._output,
             parameters=self._parameters,
             version=version,
-            remote=self._remote,
+            remote=remote,
             owner_id=self._owner_id,
         )
 
