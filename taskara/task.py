@@ -298,6 +298,10 @@ class Task(WithDB):
             return
 
         logger.debug("creating thread")
+        
+        existing_threads = RoleThread.find(name=name, owner_id=self.owner_id)
+        if existing_threads:
+            raise ValueError(f"Thread with name '{name}' already exists")
         thread = RoleThread(self.owner_id, public, name, metadata)
         self._threads.append(thread)
         self.save()
