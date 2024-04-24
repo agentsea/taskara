@@ -24,6 +24,8 @@ class TaskRecord(Base):
     prompts = Column(String, nullable=True)
     parameters = Column(String, nullable=True)
     version = Column(String, nullable=True)
+    tags = Column(String, nullable=True)
+    labels = Column(String, nullable=True)
 
 
 class PromptRecord(Base):

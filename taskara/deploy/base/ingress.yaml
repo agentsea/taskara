@@ -8,7 +8,7 @@ metadata:
     kubernetes.io/ingress.global-static-ip-name: tasks-develop
 spec:
   rules:
-    - host: api.tasks.agentlabs.xyz
+    - host: api.tasks.my.domain
       http:
         paths:
           - path: /

@@ -40,6 +40,8 @@ class Task(WithDB):
         parameters: Optional[Dict[str, Any]] = {},
         remote: Optional[str] = None,
         version: Optional[str] = None,
+        labels: Dict[str, str] = {},
+        tags: List[str] = [],
     ):
         self._id = id if id is not None else str(uuid.uuid4())
         self._description = description
@@ -55,6 +57,8 @@ class Task(WithDB):
         self._parameters = parameters
         self._remote = remote
         self._prompts = prompts
+        self._labels = labels
+        self._tags = tags
 
         self._threads = []
         self.create_thread("feed")
@@ -190,6 +194,22 @@ class Task(WithDB):
     def remote(self, value: str):
         self._remote = value
 
+    @property
+    def labels(self) -> Dict[str, str]:
+        return self._labels
+
+    @labels.setter
+    def labels(self, value: Dict[str, str]):
+        self._labels = value
+
+    @property
+    def tags(self) -> List[str]:
+        return self._tags
+
+    @tags.setter
+    def tags(self, value: List[str]):
+        self._tags = value
+
     def generate_version_hash(self) -> str:
         task_data = json.dumps(self.to_schema().model_dump(), sort_keys=True)
         hash_version = hashlib.sha256(task_data.encode("utf-8")).hexdigest()
@@ -306,11 +326,30 @@ class Task(WithDB):
                     metadata=metadata,
                 ).model_dump(),
             )
-            logger.debug("removed remote thread")
+            logger.debug("stored prompt")
             return
 
         prompt = Prompt(thread, response, namespace, metadata)
         self._prompts.append(prompt)
+        self.save()
+
+    def approve_prompt(self, prompt_id: str) -> None:
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("creting remote thread")
+            self._remote_request(
+                self._remote,
+                "POST",
+                f"/v1/tasks/{self._id}/prompts/{prompt_id}/approve",
+            )
+            logger.debug("approved prompt")
+            return
+
+        prompts = Prompt.find(id=prompt_id)
+        if not prompts:
+            raise ValueError(f"Prompt with id '{prompt_id}' not found")
+        prompt = prompts[0]
+        prompt.approved = True
+        prompt.save()
 
     def create_thread(
         self,

@@ -4,4 +4,4 @@ metadata:
   name: tasks-cert
 spec:
   domains:
-    - api.tasks.agentlabs.xyz
+    - api.tasks.my.domain

@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: postgres
+  name: postgres-tasks
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: postgres
+      app: postgres-tasks
   template:
     metadata:
       labels:
-        app: postgres
+        app: postgres-tasks
     spec:
       containers:
-        - name: postgres
+        - name: postgres-tasks
           image: postgres:16.2
           ports:
             - containerPort: 5432
@@ -37,11 +37,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres-service
+  name: postgres-tasks-service
 spec:
   type: ClusterIP
   selector:
-    app: postgres
+    app: postgres-tasks
   ports:
     - port: 5432
       targetPort: 5432
@@ -49,7 +49,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: postgres-pvc
+  name: postgres-tasks-pvc
 spec:
   accessModes:
     - ReadWriteOnce

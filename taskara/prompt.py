@@ -2,7 +2,7 @@ import uuid
 import time
 import logging
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from threadmem import RoleThread, RoleMessage
 from threadmem.server.models import RoleMessageModel
@@ -25,6 +25,7 @@ class Prompt(WithDB):
         metadata: Dict[str, Any] = {},
         approved: bool = False,
         flagged: bool = False,
+        owner_id: Optional[str] = None,
     ):
         self._id = str(uuid.uuid4())
         self._namespace = namespace
@@ -34,6 +35,7 @@ class Prompt(WithDB):
         self._created = time.time()
         self._approved = approved
         self._flagged = flagged
+        self._owner_id = owner_id
 
         self.save()
 
@@ -96,6 +98,14 @@ class Prompt(WithDB):
     @flagged.setter
     def flagged(self, value: bool):
         self._flagged = value
+
+    @property
+    def owner_id(self) -> Optional[str]:
+        return self._owner_id
+
+    @owner_id.setter
+    def owner_id(self, value: str):
+        self._owner_id = value
 
     def to_record(self) -> PromptRecord:
         # Serialize the response using RoleMessageModel's json() method

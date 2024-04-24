@@ -3,19 +3,19 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from threadmem import RoleMessage, RoleThread
-from taskara import Task
+
+from taskara import Task, Prompt
 from taskara.server.models import (
     PromptModel,
     TaskUpdateModel,
     TaskModel,
-    SolveTaskModel,
     TasksModel,
     CreateTaskModel,
     V1UserProfile,
     PostMessageModel,
+    AddThreadModel,
+    RemoveThreadModel,
 )
-
-from taskara.server.models import AddThreadModel, RemoveThreadModel
 from taskara.auth.transport import get_current_user
 
 router = APIRouter()
@@ -119,7 +119,7 @@ async def post_task_msg(
 
 
 @router.post("/v1/tasks/{task_id}/prompts")
-async def store_prompt_msg(
+async def store_prompt(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)],
     task_id: str,
     data: PromptModel,
@@ -138,6 +138,29 @@ async def store_prompt_msg(
     )
 
     print("\nstored prompt in task: ", task.__dict__)
+    return
+
+
+@router.post("/v1/tasks/{task_id}/prompts/{prompt_id}/approve")
+async def approve_prompt(
+    current_user: Annotated[V1UserProfile, Depends(get_current_user)],
+    task_id: str,
+    promt_id: str,
+):
+    tasks = Task.find(id=task_id, owner_id=current_user.email)
+    if not tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = tasks[0]
+
+    prompts = Prompt.find(id=promt_id, owner_id=current_user.email)
+    if not prompts:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    prompt = prompts[0]
+
+    prompt.approved = True
+    prompt.save()
+
+    print("\napproved prompt in task: ", task.__dict__)
     return
 
 

@@ -70,7 +70,7 @@ app.include_router(tasks_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Agent in the shell"}
+    return {"message": "tasks4lyfe"}
 
 
 @app.get("/health")
