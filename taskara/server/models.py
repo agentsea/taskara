@@ -10,12 +10,14 @@ from devicebay.models import DeviceModel
 class PromptModel(BaseModel):
     """An LLM prompt model"""
 
-    id: str
+    id: Optional[str] = None
     thread: RoleThreadModel
     response: RoleMessageModel
     namespace: str = "default"
     metadata: Dict[str, Any] = {}
-    created: float
+    created: Optional[float] = None
+    approved: bool = False
+    flagged: bool = False
 
 
 class TaskUpdateModel(BaseModel):

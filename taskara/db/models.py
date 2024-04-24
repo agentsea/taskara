@@ -1,8 +1,7 @@
 import time
 
-from sqlalchemy import Column, String, Float, Integer, Text
+from sqlalchemy import Boolean, Column, String, Float, Integer, Text
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.dialects.postgresql import JSON
 
 Base = declarative_base()
 
@@ -35,4 +34,6 @@ class PromptRecord(Base):
     thread_id = Column(String, index=True)
     response = Column(Text)
     metadata = Column(Text, default=dict)
+    approved = Column(Boolean, default=False)
+    flagged = Column(Boolean, default=False)
     created = Column(Float, default=time.time)

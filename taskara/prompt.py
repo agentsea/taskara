@@ -23,6 +23,8 @@ class Prompt(WithDB):
         response: RoleMessage,
         namespace: str = "default",
         metadata: Dict[str, Any] = {},
+        approved: bool = False,
+        flagged: bool = False,
     ):
         self._id = str(uuid.uuid4())
         self._namespace = namespace
@@ -30,6 +32,8 @@ class Prompt(WithDB):
         self._response = response
         self._metadata = metadata
         self._created = time.time()
+        self._approved = approved
+        self._flagged = flagged
 
         self.save()
 
@@ -77,6 +81,22 @@ class Prompt(WithDB):
     def created(self, value: float):
         self._created = value
 
+    @property
+    def approved(self) -> bool:
+        return self._approved
+
+    @approved.setter
+    def approved(self, value: bool):
+        self._approved = value
+
+    @property
+    def flagged(self) -> bool:
+        return self._flagged
+
+    @flagged.setter
+    def flagged(self, value: bool):
+        self._flagged = value
+
     def to_record(self) -> PromptRecord:
         # Serialize the response using RoleMessageModel's json() method
         if not self.metadata:
@@ -89,6 +109,8 @@ class Prompt(WithDB):
             response=self._response.to_schema().model_dump_json(),
             metadata=json.dumps(self._metadata),
             created=self._created,
+            approved=self._approved,
+            flagged=self._flagged,
         )
 
     @classmethod
@@ -101,14 +123,18 @@ class Prompt(WithDB):
 
         response = RoleMessageModel.model_validate_json(str(record.response))
         metadata = json.loads(record.metadata) if record.metadata else {}  # type: ignore
-        return cls(
-            id=record.id,  # type: ignore
-            namespace=record.namespace,  # type: ignore
-            thread=thread,
-            response=response,  # type: ignore
-            metadata=metadata,
-            created=record.created,  # type: ignore
-        )
+
+        obj = cls.__new__(cls)
+        obj._id = record.id
+        obj._namespace = record.namespace
+        obj._thread = thread
+        obj._response = response
+        obj._metadata = metadata
+        obj._created = record.created
+        obj._approved = record.approved
+        obj._flagged = record.flagged
+
+        return obj
 
     def to_schema(self) -> PromptModel:
         return PromptModel(
@@ -118,6 +144,8 @@ class Prompt(WithDB):
             response=self._response.to_schema(),
             metadata=self._metadata,
             created=self._created,
+            approved=self._approved,
+            flagged=self._flagged,
         )
 
     @classmethod
@@ -130,6 +158,8 @@ class Prompt(WithDB):
         obj._response = RoleMessage.from_schema(schema.response)
         obj._metadata = schema.metadata
         obj._created = schema.created
+        obj._approved = schema.approved
+        obj._flagged = schema.flagged
 
         return obj
 

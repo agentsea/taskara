@@ -11,7 +11,7 @@ from threadmem import RoleThread, RoleMessage
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
-from .models import TaskModel, TaskUpdateModel, TasksModel
+from .server.models import PromptModel, TaskModel, TaskUpdateModel, TasksModel
 from .env import HUB_API_KEY_ENV
 from .prompt import Prompt
 
@@ -293,6 +293,22 @@ class Task(WithDB):
         namespace: str = "default",
         metadata: Dict[str, Any] = {},
     ) -> None:
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("creting remote thread")
+            self._remote_request(
+                self._remote,
+                "POST",
+                f"/v1/tasks/{self._id}/prompts",
+                PromptModel(
+                    thread=thread.to_schema(),
+                    response=response.to_schema(),
+                    namespace=namespace,
+                    metadata=metadata,
+                ).model_dump(),
+            )
+            logger.debug("removed remote thread")
+            return
+
         prompt = Prompt(thread, response, namespace, metadata)
         self._prompts.append(prompt)
 
