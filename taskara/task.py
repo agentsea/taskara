@@ -6,14 +6,16 @@ import os
 import json
 import hashlib
 import logging
+from pydantic import BaseModel
 
-from threadmem import RoleThread, RoleMessage
+from threadmem import RoleThread, RoleMessage, RoleThreadModel
+from threadmem.server.models import RoleMessageModel
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
 from .models import TaskModel, TaskUpdateModel, TasksModel
 from .env import HUB_API_KEY_ENV
-
+from .prompt import Prompt
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -33,6 +35,7 @@ class Task(WithDB):
         started: float = 0.0,
         completed: float = 0.0,
         threads: List[RoleThread] = [],
+        prompts: List[Prompt] = [],
         assigned_to: Optional[str] = None,
         error: Optional[str] = None,
         output: Optional[str] = None,
@@ -279,6 +282,46 @@ class Task(WithDB):
 
         raise ValueError(f"Thread by name or id '{thread}' not found")
 
+    def store_prompt(
+        self,
+        msgs: List,
+        namespace: str = "default",
+        images: List[str] = [],
+        private: bool = False,
+        metadata: Optional[dict] = None,
+        thread: Optional[str] = None,
+    ) -> None:
+        logger.debug(f"posting message to thread {thread}: ", msg)
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("posting msg to remote task", self._id)
+            try:
+                data = {"msg": msg, "role": role, "images": images}
+                if thread:
+                    data["thread"] = thread
+                self._remote_request(
+                    self._remote,
+                    "POST",
+                    f"/v1/tasks/{self.id}/msg",
+                    data,
+                )
+                return
+            except Exception as e:
+                print("failed to post message to remote: ", e)
+                raise
+
+        if not thread:
+            thread = "feed"
+
+        logger.debug("finding local thread...")
+        for thrd in self._threads:
+            logger.debug("checking thread: ", thrd.name, thrd.id)
+            if thrd.id == thread or thrd.name == thread:
+                logger.debug("found local thread")
+                thrd.post(role, msg, images, private, metadata)
+                return
+
+        raise ValueError(f"Thread by name or id '{thread}' not found")
+
     def create_thread(
         self,
         name: Optional[str] = None,
@@ -298,7 +341,7 @@ class Task(WithDB):
             return
 
         logger.debug("creating thread")
-        
+
         existing_threads = RoleThread.find(name=name, owner_id=self.owner_id)
         if existing_threads:
             raise ValueError(f"Thread with name '{name}' already exists")

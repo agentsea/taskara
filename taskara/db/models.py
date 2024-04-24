@@ -1,5 +1,8 @@
-from sqlalchemy import Column, String, Float, Integer
+import time
+
+from sqlalchemy import Column, String, Float, Integer, Text
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.dialects.postgresql import JSON
 
 Base = declarative_base()
 
@@ -21,3 +24,14 @@ class TaskRecord(Base):
     threads = Column(String, nullable=False)
     parameters = Column(String, nullable=True)
     version = Column(String, nullable=True)
+
+
+class PromptRecord(Base):
+    __tablename__ = "prompts"
+
+    id = Column(String, primary_key=True)
+    namespace = Column(String, default="default")
+    thread_id = Column(String, index=True)
+    response = Column(Text)
+    metadata = Column(Text, default=dict)
+    created = Column(Float, default=time.time)
