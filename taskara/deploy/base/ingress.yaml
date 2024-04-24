@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tasks-ingress
+  annotations:
+    ingressClassName: "gce"
+    networking.gke.io/managed-certificates: tasks-cert
+    kubernetes.io/ingress.global-static-ip-name: tasks-develop
+spec:
+  rules:
+    - host: api.tasks.agentlabs.xyz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tasks-api-service
+                port:
+                  number: 80

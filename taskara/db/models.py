@@ -22,6 +22,7 @@ class TaskRecord(Base):
     error = Column(String, nullable=True)
     output = Column(String, nullable=True)
     threads = Column(String, nullable=False)
+    prompts = Column(String, nullable=True)
     parameters = Column(String, nullable=True)
     version = Column(String, nullable=True)
 

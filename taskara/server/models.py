@@ -2,9 +2,20 @@ from typing import Optional, List, Dict, Any
 import uuid
 import time
 
-from threadmem.server.models import RoleThreadModel
+from threadmem.server.models import RoleThreadModel, RoleMessageModel
 from pydantic import BaseModel, Field
 from devicebay.models import DeviceModel
+
+
+class PromptModel(BaseModel):
+    """An LLM prompt model"""
+
+    id: str
+    thread: RoleThreadModel
+    response: RoleMessageModel
+    namespace: str = "default"
+    metadata: Dict[str, Any] = {}
+    created: float
 
 
 class TaskUpdateModel(BaseModel):
@@ -24,6 +35,7 @@ class TaskModel(BaseModel):
     max_steps: int = 30
     status: Optional[str] = None
     threads: Optional[List[RoleThreadModel]] = None
+    prompts: Optional[List[PromptModel]] = None
     assigned_to: Optional[str] = None
     created: float = Field(default_factory=time.time)
     started: float = 0.0
@@ -60,3 +72,28 @@ class SolveTaskModel(BaseModel):
     device: Optional[DeviceModel] = None
     agent: Optional[AgentModel] = None
     max_steps: int = 30
+
+
+class CreateTaskModel(BaseModel):
+    task: TaskModel
+    device: str
+    agent: Optional[AgentModel] = None
+    max_steps: int = 30
+
+
+class AddThreadModel(BaseModel):
+    public: bool
+    name: Optional[str] = None
+    metadata: Optional[dict] = None
+    id: Optional[str] = None
+
+
+class RemoveThreadModel(BaseModel):
+    id: str
+
+
+class PostMessageModel(BaseModel):
+    role: str
+    msg: str
+    images: List[str] = []
+    thread: Optional[str] = None

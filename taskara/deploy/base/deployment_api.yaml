@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasks-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tasks-api
+  template:
+    metadata:
+      labels:
+        app: tasks-api
+    spec:
+      serviceAccountName: tasks-sa
+      containers:
+        - name: tasks-api
+          image: us-central1-docker.pkg.dev/agentsea-dev/taskara/api:latest
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 25
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          env:
+            - name: AGENTSEA_HUB_URL
+              value: https://api.hub.dev.agentlabs.xyz
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASS
+              value: "abc12345"
+            - name: DB_HOST
+              value: postgres-service
+            - name: DB_NAME
+              value: tasks
+            - name: DB_TYPE
+              value: postgres
+            - name: BRANCH
+              value: main
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tasks-secrets
+                  key: ENCRYPTION_KEY
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace

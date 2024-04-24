@@ -1,0 +1,53 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        docker buildx create --name mybuilder --use
+        docker buildx build \
+          --platform linux/amd64 \
+          -t us-central1-docker.pkg.dev/agentsea-dev/taskara/api:$SHORT_SHA . \
+          --push \
+          --cache-from=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache \
+          --cache-to=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache,mode=max
+        if [ "$BRANCH_NAME" == "main" ]; then
+          docker buildx build \
+            --platform linux/amd64 \
+            -t us-central1-docker.pkg.dev/agentsea-dev/taskara/api:latest . \
+            --push \
+            --cache-from=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache \
+            --cache-to=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache,mode=max
+        fi
+
+  - name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - "chmod 777 deploy/kustomize/overlays/$BRANCH_NAME/deployment_api.yaml && ls -l deploy"
+
+  # Update image in deployment.yaml using yq
+  - name: "mikefarah/yq"
+    args:
+      - "eval"
+      - "-i"
+      - '.spec.template.spec.containers[0].image = "us-central1-docker.pkg.dev/agentsea-dev/threadmem/api:$SHORT_SHA"'
+      - "deploy/kustomize/overlays/$BRANCH_NAME/deployment_api.yaml"
+
+  # Apply to the cluster
+  - id: "Apply kustomize overlay"
+    name: "gcr.io/cloud-builders/kubectl"
+    args:
+      - "apply"
+      - "-k"
+      - "deploy/kustomize/overlays/$BRANCH_NAME"
+      - "-n"
+      - "threadmem-$BRANCH_NAME"
+    env:
+      - "CLOUDSDK_COMPUTE_REGION=us-central1"
+      - "CLOUDSDK_CONTAINER_CLUSTER=hub-gke-cluster-3f94b5f"
+      - "CLOUDSDK_CONFIG_PROJECT=$PROJECT_ID"
+options:
+  volumes:
+    - name: "pip-cache"
+      path: "/root/.cache/pip"

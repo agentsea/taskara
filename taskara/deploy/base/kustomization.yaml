@@ -1,0 +1,8 @@
+resources:
+  - cert.yaml
+  - deployment_api.yaml
+  - external_secret.yaml
+  - ingress.yaml
+  - pg.yaml
+  - service.yaml
+  - secret_store.yaml

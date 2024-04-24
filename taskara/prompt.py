@@ -2,29 +2,20 @@ import uuid
 import time
 import logging
 import json
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 
-from pydantic import BaseModel
-from threadmem import RoleThread, RoleMessage, RoleThreadModel
+from threadmem import RoleThread, RoleMessage
 from threadmem.server.models import RoleMessageModel
 
 from .db.models import PromptRecord
 from .db.conn import WithDB
+from .server.models import PromptModel
 
 logger = logging.getLogger(__name__)
 
 
-class PromptModel(BaseModel):
-    id: str
-    namespace: str = "default"
-    thread: RoleThreadModel
-    response: RoleMessageModel
-    created: float
-    metadata: Dict[str, Any] = {}
-
-
 class Prompt(WithDB):
-    """A communication prompt"""
+    """An LLM prompt"""
 
     def __init__(
         self,
@@ -32,15 +23,15 @@ class Prompt(WithDB):
         response: RoleMessage,
         namespace: str = "default",
         metadata: Dict[str, Any] = {},
-        id: Optional[str] = None,
-        created: float = time.time(),
     ):
-        self._id = id if id else str(uuid.uuid4())
+        self._id = str(uuid.uuid4())
         self._namespace = namespace
         self._thread = thread
         self._response = response
         self._metadata = metadata
-        self._created = created
+        self._created = time.time()
+
+        self.save()
 
     @property
     def id(self) -> str:
@@ -141,6 +132,18 @@ class Prompt(WithDB):
         obj._created = schema.created
 
         return obj
+
+    @classmethod
+    def find(cls, **kwargs) -> List["Prompt"]:
+        for db in cls.get_db():
+            records = (
+                db.query(PromptRecord)
+                .filter_by(**kwargs)
+                .order_by(PromptRecord.created.desc())
+                .all()
+            )
+            return [cls.from_record(record) for record in records]
+        raise ValueError("No session")
 
     def save(self) -> None:
         logger.debug("saving prompt", self._id)

@@ -6,10 +6,8 @@ import os
 import json
 import hashlib
 import logging
-from pydantic import BaseModel
 
-from threadmem import RoleThread, RoleMessage, RoleThreadModel
-from threadmem.server.models import RoleMessageModel
+from threadmem import RoleThread, RoleMessage
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
@@ -56,6 +54,7 @@ class Task(WithDB):
         self._output = output
         self._parameters = parameters
         self._remote = remote
+        self._prompts = prompts
 
         self._threads = []
         self.create_thread("feed")
@@ -213,6 +212,7 @@ class Task(WithDB):
             error=self._error,
             output=self._output,
             threads=json.dumps([t._id for t in self._threads]),
+            prompts=json.dumps([p._id for p in self._prompts]),
             parameters=json.dumps(self._parameters),
             version=version,
         )
@@ -221,6 +221,9 @@ class Task(WithDB):
     def from_record(cls, record: TaskRecord) -> "Task":
         thread_ids = json.loads(str(record.threads))
         threads = [RoleThread.find(id=thread_id)[0] for thread_id in thread_ids]
+
+        prompt_ids = json.loads(str(record.prompts))
+        prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
         parameters = json.loads(str(record.parameters))
 
@@ -237,6 +240,7 @@ class Task(WithDB):
         obj._error = record.error
         obj._output = record.output
         obj._threads = threads
+        obj._prompts = prompts
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
@@ -284,43 +288,13 @@ class Task(WithDB):
 
     def store_prompt(
         self,
-        msgs: List,
+        thread: RoleThread,
+        response: RoleMessage,
         namespace: str = "default",
-        images: List[str] = [],
-        private: bool = False,
-        metadata: Optional[dict] = None,
-        thread: Optional[str] = None,
+        metadata: Dict[str, Any] = {},
     ) -> None:
-        logger.debug(f"posting message to thread {thread}: ", msg)
-        if hasattr(self, "_remote") and self._remote:
-            logger.debug("posting msg to remote task", self._id)
-            try:
-                data = {"msg": msg, "role": role, "images": images}
-                if thread:
-                    data["thread"] = thread
-                self._remote_request(
-                    self._remote,
-                    "POST",
-                    f"/v1/tasks/{self.id}/msg",
-                    data,
-                )
-                return
-            except Exception as e:
-                print("failed to post message to remote: ", e)
-                raise
-
-        if not thread:
-            thread = "feed"
-
-        logger.debug("finding local thread...")
-        for thrd in self._threads:
-            logger.debug("checking thread: ", thrd.name, thrd.id)
-            if thrd.id == thread or thrd.name == thread:
-                logger.debug("found local thread")
-                thrd.post(role, msg, images, private, metadata)
-                return
-
-        raise ValueError(f"Thread by name or id '{thread}' not found")
+        prompt = Prompt(thread, response, namespace, metadata)
+        self._prompts.append(prompt)
 
     def create_thread(
         self,
@@ -508,6 +482,7 @@ class Task(WithDB):
             description=self._description if self._description else "",
             max_steps=self._max_steps,
             threads=[t.to_schema() for t in self._threads],
+            prompts=[p.to_schema() for p in self._prompts],
             status=self._status,
             created=self._created,
             started=self._started,
@@ -564,6 +539,11 @@ class Task(WithDB):
         else:
             obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
 
+        if schema.prompts:
+            obj._prompts = [Prompt.from_schema(p) for p in schema.prompts]
+        else:
+            obj._prompts = []
+
         return obj
 
     def refresh(self, auth_token: Optional[str] = None) -> None:
@@ -593,6 +573,10 @@ class Task(WithDB):
                         self._threads = [
                             RoleThread.from_schema(wt) for wt in schema.threads
                         ]
+                    if schema.prompts:
+                        self._prompts = [Prompt.from_schema(p) for p in schema.prompts]
+                    else:
+                        self._prompts = []
                     logger.debug("\nrefreshed remote task", self._id)
             except requests.RequestException as e:
                 raise e
