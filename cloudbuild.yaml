@@ -19,8 +19,3 @@ steps:
             --cache-from=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache \
             --cache-to=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache,mode=max
         fi
-
-options:
-  volumes:
-    - name: "pip-cache"
-      path: "/root/.cache/pip"
