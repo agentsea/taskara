@@ -1,0 +1,21 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        docker buildx create --name mybuilder --use
+        docker buildx build \
+          --platform linux/amd64 \
+          -t us-central1-docker.pkg.dev/agentsea-dev/taskara/api:$SHORT_SHA . \
+          --push \
+          --cache-from=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache \
+          --cache-to=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache,mode=max
+        if [ "$BRANCH_NAME" == "main" ]; then
+          docker buildx build \
+            --platform linux/amd64 \
+            -t us-central1-docker.pkg.dev/agentsea-dev/taskara/api:latest . \
+            --push \
+            --cache-from=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache \
+            --cache-to=type=registry,ref=us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cache,mode=max
+        fi

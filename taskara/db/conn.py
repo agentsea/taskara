@@ -10,22 +10,21 @@ DB_TYPE = os.environ.get("DB_TYPE", "sqlite")
 
 
 def get_pg_conn() -> Engine:
-    # Env Vars
-    db_user = os.environ.get("DB_USER")
-    if not db_user:
-        raise ValueError("$DB_USER must be set to a valid postgres db user")
+    # Helper function to get environment variable with fallback
+    def get_env_var(key: str) -> str:
+        task_key = f"TASK_{key}"
+        value = os.environ.get(task_key)
+        if value is None:
+            value = os.environ.get(key)
+            if value is None:
+                raise ValueError(f"${key} must be set")
+        return value
 
-    db_password = os.environ.get("DB_PASS")
-    if not db_password:
-        raise ValueError("$DB_PASS must be set to a valid postgres db user password")
-
-    db_host = os.environ.get("DB_HOST")
-    if not db_user:
-        raise ValueError("$DB_HOST must be set to a running postgres server")
-
-    db_name = os.environ.get("DB_NAME")
-    if not db_name:
-        raise ValueError("$DB_NAME must be set to a postgres db name")
+    # Retrieve environment variables with fallbacks
+    db_user = get_env_var("DB_USER")
+    db_password = get_env_var("DB_PASS")
+    db_host = get_env_var("DB_HOST")
+    db_name = get_env_var("DB_NAME")
 
     print(f"\nconnecting to db on postgres host '{db_host}' with db '{db_name}'")
     engine = create_engine(

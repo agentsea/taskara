@@ -11,9 +11,9 @@ from threadmem import RoleThread, RoleMessage
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
-from .models import TaskModel, TaskUpdateModel, TasksModel
+from .server.models import PromptModel, TaskModel, TaskUpdateModel, TasksModel
 from .env import HUB_API_KEY_ENV
-
+from .prompt import Prompt
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -33,12 +33,15 @@ class Task(WithDB):
         started: float = 0.0,
         completed: float = 0.0,
         threads: List[RoleThread] = [],
+        prompts: List[Prompt] = [],
         assigned_to: Optional[str] = None,
         error: Optional[str] = None,
         output: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = {},
         remote: Optional[str] = None,
         version: Optional[str] = None,
+        labels: Dict[str, str] = {},
+        tags: List[str] = [],
     ):
         self._id = id if id is not None else str(uuid.uuid4())
         self._description = description
@@ -53,6 +56,9 @@ class Task(WithDB):
         self._output = output
         self._parameters = parameters
         self._remote = remote
+        self._prompts = prompts
+        self._labels = labels
+        self._tags = tags
 
         self._threads = []
         self.create_thread("feed")
@@ -188,6 +194,22 @@ class Task(WithDB):
     def remote(self, value: str):
         self._remote = value
 
+    @property
+    def labels(self) -> Dict[str, str]:
+        return self._labels
+
+    @labels.setter
+    def labels(self, value: Dict[str, str]):
+        self._labels = value
+
+    @property
+    def tags(self) -> List[str]:
+        return self._tags
+
+    @tags.setter
+    def tags(self, value: List[str]):
+        self._tags = value
+
     def generate_version_hash(self) -> str:
         task_data = json.dumps(self.to_schema().model_dump(), sort_keys=True)
         hash_version = hashlib.sha256(task_data.encode("utf-8")).hexdigest()
@@ -210,14 +232,20 @@ class Task(WithDB):
             error=self._error,
             output=self._output,
             threads=json.dumps([t._id for t in self._threads]),
+            prompts=json.dumps([p._id for p in self._prompts]),
             parameters=json.dumps(self._parameters),
             version=version,
+            tags=json.dumps(self.tags),
+            labels=json.dumps(self.labels),
         )
 
     @classmethod
     def from_record(cls, record: TaskRecord) -> "Task":
         thread_ids = json.loads(str(record.threads))
         threads = [RoleThread.find(id=thread_id)[0] for thread_id in thread_ids]
+
+        prompt_ids = json.loads(str(record.prompts))
+        prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
         parameters = json.loads(str(record.parameters))
 
@@ -234,9 +262,12 @@ class Task(WithDB):
         obj._error = record.error
         obj._output = record.output
         obj._threads = threads
+        obj._prompts = prompts
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
+        obj.tags = json.loads(str(record.tags))
+        obj._labels = json.loads(str(record.labels))
         return obj
 
     def post_message(
@@ -279,6 +310,51 @@ class Task(WithDB):
 
         raise ValueError(f"Thread by name or id '{thread}' not found")
 
+    def store_prompt(
+        self,
+        thread: RoleThread,
+        response: RoleMessage,
+        namespace: str = "default",
+        metadata: Dict[str, Any] = {},
+    ) -> None:
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("creting remote thread")
+            self._remote_request(
+                self._remote,
+                "POST",
+                f"/v1/tasks/{self._id}/prompts",
+                PromptModel(
+                    thread=thread.to_schema(),
+                    response=response.to_schema(),
+                    namespace=namespace,
+                    metadata=metadata,
+                ).model_dump(),
+            )
+            logger.debug("stored prompt")
+            return
+
+        prompt = Prompt(thread, response, namespace, metadata)
+        self._prompts.append(prompt)
+        self.save()
+
+    def approve_prompt(self, prompt_id: str) -> None:
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("creting remote thread")
+            self._remote_request(
+                self._remote,
+                "POST",
+                f"/v1/tasks/{self._id}/prompts/{prompt_id}/approve",
+            )
+            logger.debug("approved prompt")
+            return
+
+        prompts = Prompt.find(id=prompt_id)
+        if not prompts:
+            raise ValueError(f"Prompt with id '{prompt_id}' not found")
+        prompt = prompts[0]
+        prompt.approved = True
+        prompt.save()
+
     def create_thread(
         self,
         name: Optional[str] = None,
@@ -298,7 +374,7 @@ class Task(WithDB):
             return
 
         logger.debug("creating thread")
-        
+
         existing_threads = RoleThread.find(name=name, owner_id=self.owner_id)
         if existing_threads:
             raise ValueError(f"Thread with name '{name}' already exists")
@@ -391,7 +467,7 @@ class Task(WithDB):
                 )
                 logger.debug("\ncreated new task", self._id)
         else:
-            logger.debug("!saving local db task", self._id)
+            logger.debug("saving local db task", self._id)
             if hasattr(self, "_version"):
                 if self._version != new_version:
                     self._version = new_version
@@ -416,7 +492,7 @@ class Task(WithDB):
                 ]
                 for task in out:
                     task._remote = remote
-                    logger.debug("\nreturning task: ", task.__dict__)
+                    logger.debug("returning task: ", task.__dict__)
                 return out
             else:
                 return []
@@ -465,6 +541,7 @@ class Task(WithDB):
             description=self._description if self._description else "",
             max_steps=self._max_steps,
             threads=[t.to_schema() for t in self._threads],
+            prompts=[p.to_schema() for p in self._prompts],
             status=self._status,
             created=self._created,
             started=self._started,
@@ -476,6 +553,8 @@ class Task(WithDB):
             version=version,
             remote=remote,
             owner_id=self._owner_id,
+            tags=self._tags,
+            labels=self._labels,
         )
 
     def to_update_schema(self) -> TaskUpdateModel:
@@ -515,11 +594,18 @@ class Task(WithDB):
         obj._parameters = schema.parameters
         obj._remote = schema.remote
         obj._owner_id = owner_id
+        obj._tags = schema.tags
+        obj._labels = schema.labels
 
         if schema.threads:
             obj._threads = [RoleThread.from_schema(s) for s in schema.threads]
         else:
             obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
+
+        if schema.prompts:
+            obj._prompts = [Prompt.from_schema(p) for p in schema.prompts]
+        else:
+            obj._prompts = []
 
         return obj
 
@@ -550,6 +636,10 @@ class Task(WithDB):
                         self._threads = [
                             RoleThread.from_schema(wt) for wt in schema.threads
                         ]
+                    if schema.prompts:
+                        self._prompts = [Prompt.from_schema(p) for p in schema.prompts]
+                    else:
+                        self._prompts = []
                     logger.debug("\nrefreshed remote task", self._id)
             except requests.RequestException as e:
                 raise e
