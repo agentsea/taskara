@@ -5,7 +5,7 @@ import json
 from typing import Dict, Any, List, Optional
 
 from threadmem import RoleThread, RoleMessage
-from threadmem.server.models import RoleMessageModel
+from threadmem.server.models import RoleMessageModel, RoleThreadModel
 
 from .db.models import PromptRecord
 from .db.conn import WithDB
@@ -115,7 +115,7 @@ class Prompt(WithDB):
         return PromptRecord(
             id=self._id,
             namespace=self._namespace,
-            thread_id=self._thread.id,
+            thread=self._thread.to_schema().model_dump_json(),
             response=self._response.to_schema().model_dump_json(),
             metadata_=json.dumps(self._metadata),
             created=self._created,
@@ -126,10 +126,8 @@ class Prompt(WithDB):
     @classmethod
     def from_record(cls, record: PromptRecord) -> "Prompt":
         # Deserialize thread_id into a RoleThreadModel using a suitable method or lookup
-        threads = RoleThread.find(id=record.thread_id)
-        if not threads:
-            raise Exception("Thread not found")
-        thread = threads[0]
+        thread_model = RoleThreadModel.model_validate_json(str(record.thread))
+        thread = RoleThread.from_schema(thread_model)
 
         response = RoleMessageModel.model_validate_json(str(record.response))
         metadata = json.loads(record.metadata_) if record.metadata_ else {}  # type: ignore

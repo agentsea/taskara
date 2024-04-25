@@ -33,7 +33,7 @@ class PromptRecord(Base):
 
     id = Column(String, primary_key=True)
     namespace = Column(String, default="default")
-    thread_id = Column(String, index=True)
+    thread = Column(String)
     response = Column(Text)
     metadata_ = Column(Text, default=dict)
     approved = Column(Boolean, default=False)
