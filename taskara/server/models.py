@@ -48,6 +48,8 @@ class TaskModel(BaseModel):
     version: Optional[str] = None
     remote: Optional[str] = None
     owner_id: Optional[str] = None
+    tags: List[str] = []
+    labels: Dict[str, str] = {}
 
 
 class TasksModel(BaseModel):

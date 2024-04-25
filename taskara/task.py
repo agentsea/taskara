@@ -235,6 +235,8 @@ class Task(WithDB):
             prompts=json.dumps([p._id for p in self._prompts]),
             parameters=json.dumps(self._parameters),
             version=version,
+            tags=json.dumps(self.tags),
+            labels=json.dumps(self.labels),
         )
 
     @classmethod
@@ -264,6 +266,8 @@ class Task(WithDB):
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
+        obj.tags = json.loads(str(record.tags))
+        obj._labels = json.loads(str(record.labels))
         return obj
 
     def post_message(
@@ -463,7 +467,7 @@ class Task(WithDB):
                 )
                 logger.debug("\ncreated new task", self._id)
         else:
-            logger.debug("!saving local db task", self._id)
+            logger.debug("saving local db task", self._id)
             if hasattr(self, "_version"):
                 if self._version != new_version:
                     self._version = new_version
@@ -488,7 +492,7 @@ class Task(WithDB):
                 ]
                 for task in out:
                     task._remote = remote
-                    logger.debug("\nreturning task: ", task.__dict__)
+                    logger.debug("returning task: ", task.__dict__)
                 return out
             else:
                 return []
@@ -549,6 +553,8 @@ class Task(WithDB):
             version=version,
             remote=remote,
             owner_id=self._owner_id,
+            tags=self._tags,
+            labels=self._labels,
         )
 
     def to_update_schema(self) -> TaskUpdateModel:
@@ -588,6 +594,8 @@ class Task(WithDB):
         obj._parameters = schema.parameters
         obj._remote = schema.remote
         obj._owner_id = owner_id
+        obj._tags = schema.tags
+        obj._labels = schema.labels
 
         if schema.threads:
             obj._threads = [RoleThread.from_schema(s) for s in schema.threads]

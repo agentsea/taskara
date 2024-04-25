@@ -117,7 +117,7 @@ class Prompt(WithDB):
             namespace=self._namespace,
             thread_id=self._thread.id,
             response=self._response.to_schema().model_dump_json(),
-            metadata=json.dumps(self._metadata),
+            metadata_=json.dumps(self._metadata),
             created=self._created,
             approved=self._approved,
             flagged=self._flagged,
@@ -132,7 +132,7 @@ class Prompt(WithDB):
         thread = threads[0]
 
         response = RoleMessageModel.model_validate_json(str(record.response))
-        metadata = json.loads(record.metadata) if record.metadata else {}  # type: ignore
+        metadata = json.loads(record.metadata_) if record.metadata_ else {}  # type: ignore
 
         obj = cls.__new__(cls)
         obj._id = record.id

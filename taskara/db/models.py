@@ -35,7 +35,7 @@ class PromptRecord(Base):
     namespace = Column(String, default="default")
     thread_id = Column(String, index=True)
     response = Column(Text)
-    metadata = Column(Text, default=dict)
+    metadata_ = Column(Text, default=dict)
     approved = Column(Boolean, default=False)
     flagged = Column(Boolean, default=False)
     created = Column(Float, default=time.time)
