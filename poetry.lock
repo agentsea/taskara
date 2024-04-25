@@ -1213,13 +1213,13 @@ full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7
 
 [[package]]
 name = "threadmem"
-version = "0.2.21"
+version = "0.2.22"
 description = "Thread memory for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "threadmem-0.2.21-py3-none-any.whl", hash = "sha256:a74243341de10244618af2bd1dfc18fb24b1d8dddbb34e958764945929a30b76"},
-    {file = "threadmem-0.2.21.tar.gz", hash = "sha256:758b9347f4003ebd8f2fb84a2d4a75b3ca0ad38c4cdf8d4c4e6e4a25cdd2e1d5"},
+    {file = "threadmem-0.2.22-py3-none-any.whl", hash = "sha256:28ff6cf07cfeb4fc05b17343d3f6b7e4937f30d8f7baad64d349626e03da91b3"},
+    {file = "threadmem-0.2.22.tar.gz", hash = "sha256:1cc9c896baaf057ec4f302fae0fd2f8d01d81de524ee8f80187fc682f5fc95ea"},
 ]
 
 [package.dependencies]
@@ -1634,4 +1634,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "1e98860e87d77eea0a0118c753d1390137e8f226f2860cb3132ab221e55db0bf"
+content-hash = "af7086884a07f174503ef34cbfb8be1e887fcb0ecabc15036455b3d930e50045"
