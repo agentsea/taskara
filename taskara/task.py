@@ -6,6 +6,7 @@ import os
 import json
 import hashlib
 import logging
+import copy
 
 from threadmem import RoleThread, RoleMessage
 
@@ -309,6 +310,31 @@ class Task(WithDB):
                 return
 
         raise ValueError(f"Thread by name or id '{thread}' not found")
+
+    def copy(self) -> "Task":
+        """
+        Creates a deep copy of the current Task instance with a new unique ID and reset timestamps.
+
+        Returns:
+            Task: A new Task instance that is a copy of the current instance with a new unique ID and timestamps.
+        """
+        # Use the copy.deepcopy function to ensure that all mutable objects are also copied.
+        copied_task = copy.deepcopy(self)
+
+        # Resetting the unique ID and timestamps
+        copied_task._id = str(uuid.uuid4())
+        now = time.time()
+        copied_task._created = now
+        copied_task._started = 0.0
+        copied_task._completed = 0.0
+
+        # Assuming you may want to start with an undefined status or any other initial value
+        copied_task._status = "defined"
+
+        # Reset version and potentially other properties that should be unique to each new task
+        copied_task._version = copied_task.generate_version_hash()
+
+        return copied_task
 
     def store_prompt(
         self,
