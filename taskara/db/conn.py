@@ -1,4 +1,5 @@
 import os
+import time
 
 from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import sessionmaker
@@ -36,9 +37,14 @@ def get_pg_conn() -> Engine:
 
 
 def get_sqlite_conn() -> Engine:
-    print("connecting to local sqlite db ./data/tasks.db")
-    os.makedirs(os.path.dirname("./data/tasks.db"), exist_ok=True)
-    engine = create_engine("sqlite:///./data/tasks.db")
+    db_name = os.environ.get("TASKS_DB_NAME", "tasks.db")
+    db_path = os.environ.get("TASKS_DB_PATH", "./.data")
+    db_test = os.environ.get("TASKS_DB_TEST", "false") == "true"
+    if db_test:
+        db_name = f"tasks_test_{int(time.time())}.db"
+    print(f"\nconnecting to local sqlite db ./data/{db_name}")
+    os.makedirs(os.path.dirname(f"{db_path}/{db_name}"), exist_ok=True)
+    engine = create_engine(f"sqlite:///{db_path}/{db_name}")
     return engine
 
 

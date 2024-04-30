@@ -9,12 +9,13 @@ import logging
 import copy
 
 from threadmem import RoleThread, RoleMessage
+from mllm import Prompt
+from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
-from .server.models import PromptModel, TaskModel, TaskUpdateModel, TasksModel
+from .server.models import V1Prompt, V1Task, V1TaskUpdate, V1Tasks
 from .env import HUB_API_KEY_ENV
-from .prompt import Prompt
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ class Task(WithDB):
         version: Optional[str] = None,
         labels: Dict[str, str] = {},
         tags: List[str] = [],
+        episode: Optional[Episode] = None,
     ):
         self._id = id if id is not None else str(uuid.uuid4())
         self._description = description
@@ -60,6 +62,7 @@ class Task(WithDB):
         self._prompts = prompts
         self._labels = labels
         self._tags = tags
+        self._episode = episode if episode else Episode()
 
         self._threads = []
         self.create_thread("feed")
@@ -212,7 +215,7 @@ class Task(WithDB):
         self._tags = value
 
     def generate_version_hash(self) -> str:
-        task_data = json.dumps(self.to_schema().model_dump(), sort_keys=True)
+        task_data = json.dumps(self.to_v1().model_dump(), sort_keys=True)
         hash_version = hashlib.sha256(task_data.encode("utf-8")).hexdigest()
         return hash_version
 
@@ -238,6 +241,7 @@ class Task(WithDB):
             version=version,
             tags=json.dumps(self.tags),
             labels=json.dumps(self.labels),
+            episode_id=self._episode.id,
         )
 
     @classmethod
@@ -249,6 +253,9 @@ class Task(WithDB):
         prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
         parameters = json.loads(str(record.parameters))
+
+        episodes = Episode.find(id=record.episode_id)
+        episode = episodes[0]
 
         obj = cls.__new__(cls)
         obj._id = record.id
@@ -269,6 +276,7 @@ class Task(WithDB):
         obj._remote = None
         obj.tags = json.loads(str(record.tags))
         obj._labels = json.loads(str(record.labels))
+        obj._episode = episode
         return obj
 
     def post_message(
@@ -311,6 +319,32 @@ class Task(WithDB):
 
         raise ValueError(f"Thread by name or id '{thread}' not found")
 
+    def record_action(
+        self,
+        prompt: Prompt | str,
+        action: V1Action,
+        tool: V1ToolRef,
+        result: Optional[Any] = None,
+        namespace: str = "default",
+        metadata: dict = {},
+        owner_id: Optional[str] = None,
+        model: Optional[str] = None,
+        agent_id: Optional[str] = None,
+    ) -> ActionEvent:
+        if not owner_id:
+            owner_id = self.owner_id
+        return self._episode.record(
+            prompt=prompt,
+            action=action,
+            tool=tool,
+            result=result,
+            namespace=namespace,
+            metadata=metadata,
+            owner_id=owner_id,
+            model=model,
+            agent_id=agent_id,
+        )
+
     def copy(self) -> "Task":
         """
         Creates a deep copy of the current Task instance with a new unique ID and reset timestamps.
@@ -349,9 +383,9 @@ class Task(WithDB):
                 self._remote,
                 "POST",
                 f"/v1/tasks/{self._id}/prompts",
-                PromptModel(
-                    thread=thread.to_schema(),
-                    response=response.to_schema(),
+                V1Prompt(
+                    thread=thread.to_v1(),
+                    response=response.to_v1(),
                     namespace=namespace,
                     metadata=metadata,
                 ).model_dump(),
@@ -489,7 +523,7 @@ class Task(WithDB):
                     self._remote,
                     "POST",
                     "/v1/tasks",
-                    json_data=self.to_schema().model_dump(),
+                    json_data=self.to_v1().model_dump(),
                 )
                 logger.debug("\ncreated new task", self._id)
         else:
@@ -510,11 +544,10 @@ class Task(WithDB):
             remote_response = cls._remote_request(
                 remote, "GET", "/v1/tasks", json_data={**kwargs, "sort": "created_desc"}
             )
-            tasks = TasksModel(**remote_response)
+            tasks = V1Tasks(**remote_response)
             if remote_response is not None:
                 out = [
-                    cls.from_schema(record, kwargs["owner_id"])
-                    for record in tasks.tasks
+                    cls.from_v1(record, kwargs["owner_id"]) for record in tasks.tasks
                 ]
                 for task in out:
                     task._remote = remote
@@ -553,7 +586,7 @@ class Task(WithDB):
                     db.delete(record)
                     db.commit()
 
-    def to_schema(self) -> TaskModel:
+    def to_v1(self) -> V1Task:
         version = None
         if hasattr(self, "_version"):
             version = self._version
@@ -562,12 +595,12 @@ class Task(WithDB):
         if hasattr(self, "_remote"):
             remote = self._remote
 
-        return TaskModel(
+        return V1Task(
             id=self._id,
             description=self._description if self._description else "",
             max_steps=self._max_steps,
-            threads=[t.to_schema() for t in self._threads],
-            prompts=[p.to_schema() for p in self._prompts],
+            threads=[t.to_v1() for t in self._threads],
+            prompts=[p.to_v1() for p in self._prompts],
             status=self._status,
             created=self._created,
             started=self._started,
@@ -581,10 +614,11 @@ class Task(WithDB):
             owner_id=self._owner_id,
             tags=self._tags,
             labels=self._labels,
+            episode_id=self._episode.id,
         )
 
-    def to_update_schema(self) -> TaskUpdateModel:
-        return TaskUpdateModel(
+    def to_update_schema(self) -> V1TaskUpdate:
+        return V1TaskUpdate(
             description=self._description,
             max_steps=self._max_steps,
             status=self._status,
@@ -596,7 +630,7 @@ class Task(WithDB):
         )
 
     @classmethod
-    def from_schema(cls, schema: TaskModel, owner_id: Optional[str] = None) -> "Task":
+    def from_v1(cls, schema: V1Task, owner_id: Optional[str] = None) -> "Task":
         obj = cls.__new__(cls)  # Create a new instance without calling __init__
 
         owner_id = owner_id if owner_id else schema.owner_id
@@ -623,13 +657,18 @@ class Task(WithDB):
         obj._tags = schema.tags
         obj._labels = schema.labels
 
+        episodes = Episode.find(id=schema.episode_id)
+        if not episodes:
+            raise ValueError(f"Episode {schema.episode_id} not found")
+        obj._episode = episodes[0]
+
         if schema.threads:
-            obj._threads = [RoleThread.from_schema(s) for s in schema.threads]
+            obj._threads = [RoleThread.from_v1(s) for s in schema.threads]
         else:
             obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
 
         if schema.prompts:
-            obj._prompts = [Prompt.from_schema(p) for p in schema.prompts]
+            obj._prompts = [Prompt.from_v1(p) for p in schema.prompts]
         else:
             obj._prompts = []
 
@@ -646,7 +685,7 @@ class Task(WithDB):
                 )
                 logger.debug("\nfound remote task", remote_task)
                 if remote_task:
-                    schema = TaskModel(**remote_task)
+                    schema = V1Task(**remote_task)
                     self._description = schema.description
                     self._max_steps = schema.max_steps
                     self._status = schema.status if schema.status else "defined"
@@ -660,10 +699,10 @@ class Task(WithDB):
                     self._parameters = schema.parameters
                     if schema.threads:
                         self._threads = [
-                            RoleThread.from_schema(wt) for wt in schema.threads
+                            RoleThread.from_v1(wt) for wt in schema.threads
                         ]
                     if schema.prompts:
-                        self._prompts = [Prompt.from_schema(p) for p in schema.prompts]
+                        self._prompts = [Prompt.from_v1(p) for p in schema.prompts]
                     else:
                         self._prompts = []
                     logger.debug("\nrefreshed remote task", self._id)

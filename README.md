@@ -68,7 +68,19 @@ Save the task
 task.save()
 ```
 
-#### Supported Backends
+## Backends
+
+Thread and prompt storage can be backed by:
 
 - Sqlite
 - Postgresql
+
+Sqlite will be used by default. To use postgres simply configure the env vars:
+
+```sh
+DB_TYPE=postgres
+DB_NAME=taskara
+DB_HOST=localhost
+DB_USER=postgres
+DB_PASS=abc123
+```

@@ -3,28 +3,29 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from threadmem import RoleMessage, RoleThread
+from mllm import Prompt
 
-from taskara import Task, Prompt
+from taskara import Task
 from taskara.server.models import (
-    PromptModel,
-    TaskUpdateModel,
-    TaskModel,
-    TasksModel,
-    CreateTaskModel,
+    V1Prompt,
+    V1TaskUpdate,
+    V1Task,
+    V1Tasks,
+    V1CreateTask,
     V1UserProfile,
-    PostMessageModel,
-    AddThreadModel,
-    RemoveThreadModel,
+    V1PostMessage,
+    V1AddThread,
+    V1RemoveThread,
 )
 from taskara.auth.transport import get_current_user
 
 router = APIRouter()
 
 
-@router.post("/v1/tasks", response_model=TaskModel)
+@router.post("/v1/tasks", response_model=V1Task)
 async def create_task(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)],
-    data: CreateTaskModel,
+    data: V1CreateTask,
 ):
     print("creating task with model: ", data.model_dump())
     task = Task(
@@ -40,16 +41,16 @@ async def create_task(
         assigned_to=data.task.assigned_to,
     )
 
-    return task.to_schema()
+    return task.to_v1()
 
 
-@router.get("/v1/tasks", response_model=TasksModel)
+@router.get("/v1/tasks", response_model=V1Tasks)
 async def get_tasks(current_user: Annotated[V1UserProfile, Depends(get_current_user)]):
     tasks = Task.find(owner_id=current_user.email)
-    return TasksModel(tasks=[task.to_schema() for task in tasks])
+    return V1Tasks(tasks=[task.to_v1() for task in tasks])
 
 
-@router.get("/v1/tasks/{task_id}", response_model=TaskModel)
+@router.get("/v1/tasks/{task_id}", response_model=V1Task)
 async def get_task(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)], task_id: str
 ):
@@ -60,7 +61,7 @@ async def get_task(
         print("\ndid not find task by id: ", task_id)
         raise HTTPException(status_code=404, detail="Task not found")
     print("\nfound task by id: ", tasks[0])
-    return tasks[0].to_schema()
+    return tasks[0].to_v1()
 
 
 @router.delete("/v1/tasks/{task_id}")
@@ -71,11 +72,11 @@ async def delete_task(
     return {"message": "Task deleted successfully"}
 
 
-@router.put("/v1/tasks/{task_id}", response_model=TaskModel)
+@router.put("/v1/tasks/{task_id}", response_model=V1Task)
 async def update_task(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)],
     task_id: str,
-    data: TaskUpdateModel,
+    data: V1TaskUpdate,
 ):
     print("\n updating task with model: ", data)
     task = Task.find(id=task_id, owner_id=current_user.email)
@@ -98,14 +99,14 @@ async def update_task(
         task.completed = data.completed
     print("\nsaving task: ", task.__dict__)
     task.save()
-    return task.to_schema()
+    return task.to_v1()
 
 
 @router.post("/v1/tasks/{task_id}/msg")
 async def post_task_msg(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)],
     task_id: str,
-    data: PostMessageModel,
+    data: V1PostMessage,
 ):
     print("\nposting message to task: ", data.model_dump())
     task = Task.find(id=task_id, owner_id=current_user.email)
@@ -122,7 +123,7 @@ async def post_task_msg(
 async def store_prompt(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)],
     task_id: str,
-    data: PromptModel,
+    data: V1Prompt,
 ):
     print("\nposting prompt to task: ", data.model_dump())
     task = Task.find(id=task_id, owner_id=current_user.email)
@@ -131,8 +132,8 @@ async def store_prompt(
     task = task[0]
 
     task.store_prompt(
-        thread=RoleThread.from_schema(data.thread),
-        response=RoleMessage.from_schema(data.response),
+        thread=RoleThread.from_v1(data.thread),
+        response=RoleMessage.from_v1(data.response),
         namespace=data.namespace,
         metadata=data.metadata,
     )
@@ -168,7 +169,7 @@ async def approve_prompt(
 async def create_thread(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)],
     task_id: str,
-    data: AddThreadModel,
+    data: V1AddThread,
 ):
     # print("\n posting message to task: ", data)
     task = Task.find(id=task_id, owner_id=current_user.email)
@@ -184,7 +185,7 @@ async def create_thread(
 async def remove_thread(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)],
     task_id: str,
-    data: RemoveThreadModel,
+    data: V1RemoveThread,
 ):
     # print("\n posting message to task: ", data)
     task = Task.find(id=task_id, owner_id=current_user.email)

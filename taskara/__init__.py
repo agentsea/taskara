@@ -1,4 +1,3 @@
-from .task import Task
-from .prompt import Prompt
+from .task import Task, V1Task, V1Tasks
 
-__all__ = ["Task", "Prompt"]
+__all__ = ["Task", "V1Task", "V1Tasks"]

@@ -1,6 +1,4 @@
-import time
-
-from sqlalchemy import Boolean, Column, String, Float, Integer, Text
+from sqlalchemy import Column, String, Float, Integer
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -26,16 +24,4 @@ class TaskRecord(Base):
     version = Column(String, nullable=True)
     tags = Column(String, nullable=True)
     labels = Column(String, nullable=True)
-
-
-class PromptRecord(Base):
-    __tablename__ = "prompts"
-
-    id = Column(String, primary_key=True)
-    namespace = Column(String, default="default")
-    thread = Column(String)
-    response = Column(Text)
-    metadata_ = Column(Text, default=dict)
-    approved = Column(Boolean, default=False)
-    flagged = Column(Boolean, default=False)
-    created = Column(Float, default=time.time)
+    episode_id = Column(String, nullable=True)
