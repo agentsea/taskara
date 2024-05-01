@@ -4,8 +4,9 @@ import time
 
 from threadmem.server.models import V1RoleThread, V1RoleMessage
 from pydantic import BaseModel, Field
-from devicebay.models import DeviceModel
+from devicebay.models import V1Device
 from mllm import V1Prompt
+from devicebay import V1Device, V1DeviceType
 
 
 class V1TaskUpdate(BaseModel):
@@ -23,10 +24,13 @@ class V1Task(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     description: str
     max_steps: int = 30
+    device: Optional[V1Device] = None
+    device_type: Optional[V1DeviceType] = None
     status: Optional[str] = None
     threads: Optional[List[V1RoleThread]] = None
     prompts: Optional[List[V1Prompt]] = None
     assigned_to: Optional[str] = None
+    assigned_type: Optional[str] = None
     created: float = Field(default_factory=time.time)
     started: float = 0.0
     completed: float = 0.0
@@ -62,7 +66,7 @@ class V1Agent(BaseModel):
 
 class V1SolveTask(BaseModel):
     task: V1Task
-    device: Optional[DeviceModel] = None
+    device: Optional[V1Device] = None
     agent: Optional[V1Agent] = None
     max_steps: int = 30
 

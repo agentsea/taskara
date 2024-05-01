@@ -11,6 +11,7 @@ import copy
 from threadmem import RoleThread, RoleMessage
 from mllm import Prompt
 from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef
+from devicebay import V1Device, V1DeviceType
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
@@ -29,6 +30,8 @@ class Task(WithDB):
         description: Optional[str] = None,
         max_steps: int = 30,
         owner_id: Optional[str] = None,
+        device: Optional[V1Device] = None,
+        device_type: Optional[V1DeviceType] = None,
         id: Optional[str] = None,
         status: str = "defined",
         created: Optional[float] = None,
@@ -37,6 +40,7 @@ class Task(WithDB):
         threads: List[RoleThread] = [],
         prompts: List[Prompt] = [],
         assigned_to: Optional[str] = None,
+        assigned_type: Optional[str] = None,
         error: Optional[str] = None,
         output: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = {},
@@ -50,11 +54,14 @@ class Task(WithDB):
         self._description = description
         self._max_steps = max_steps
         self._owner_id = owner_id
+        self._device = device
+        self._device_type = device_type
         self._status = status
         self._created = created if created is not None else time.time()
         self._started = started
         self._completed = completed
         self._assigned_to = assigned_to
+        self._assigned_type = assigned_type
         self._error = error
         self._output = output
         self._parameters = parameters
@@ -109,6 +116,22 @@ class Task(WithDB):
     @max_steps.setter
     def max_steps(self, value: int):
         self._max_steps = value
+
+    @property
+    def device(self) -> Optional[V1Device]:
+        return self._device
+
+    @device.setter
+    def device(self, value: Optional[V1Device]):
+        self._device = value
+
+    @property
+    def device_type(self) -> Optional[V1DeviceType]:
+        return self._device_type
+
+    @device_type.setter
+    def device_type(self, value: Optional[V1DeviceType]):
+        self._device_type = value
 
     @property
     def owner_id(self) -> Optional[str]:
@@ -175,6 +198,14 @@ class Task(WithDB):
         self._assigned_to = value
 
     @property
+    def assigned_type(self) -> Optional[str]:
+        return self._assigned_type
+
+    @assigned_type.setter
+    def assigned_type(self, value: Optional[str]):
+        self._assigned_type = value
+
+    @property
     def error(self) -> Optional[str]:
         return self._error
 
@@ -223,16 +254,28 @@ class Task(WithDB):
         version = None
         if hasattr(self, "_version"):
             version = self._version
+
+        device = None
+        if self._device:
+            device = self._device.model_dump_json()
+
+        device_type = None
+        if self._device_type:
+            device_type = self._device_type.model_dump_json()
+
         return TaskRecord(
             id=self._id,
             owner_id=self._owner_id,
             description=self._description,
             max_steps=self._max_steps,
+            device=device,
+            device_type=device_type,
             status=self._status,
             created=self._created,
             started=self._started,
             completed=self._completed,
             assigned_to=self._assigned_to,
+            assigned_type=self._assigned_type,
             error=self._error,
             output=self._output,
             threads=json.dumps([t._id for t in self._threads]),
@@ -257,16 +300,27 @@ class Task(WithDB):
         episodes = Episode.find(id=record.episode_id)
         episode = episodes[0]
 
+        device = None
+        if record.device:  # type: ignore
+            device = V1Device.model_validate_json(str(record.device))
+
+        device_type = None
+        if record.device_type:  # type: ignore
+            device_type = V1DeviceType.model_validate_json(str(record.device_type))
+
         obj = cls.__new__(cls)
         obj._id = record.id
         obj._owner_id = record.owner_id
         obj._description = record.description
         obj._max_steps = record.max_steps
+        obj._device = device
+        obj._device_type = device_type
         obj._status = record.status
         obj._created = record.created
         obj._started = record.started
         obj._completed = record.completed
         obj._assigned_to = record.assigned_to
+        obj._assigned_type = record.assigned_type
         obj._error = record.error
         obj._output = record.output
         obj._threads = threads
@@ -493,7 +547,7 @@ class Task(WithDB):
                 existing_task = self._remote_request(
                     self._remote, "GET", f"/v1/tasks/{self._id}"
                 )
-                logger.debug("\nfound existing task", existing_task)
+                logger.debug("found existing task", existing_task)
 
                 if existing_task["version"] != self._version:
                     pass
@@ -501,7 +555,7 @@ class Task(WithDB):
             except Exception:
                 existing_task = None
             if existing_task:
-                logger.debug("\nupdating existing task", existing_task)
+                logger.debug("updating existing task", existing_task)
                 if self._version != new_version:
                     self._version = new_version
                     logger.debug(f"Version updated to {self._version}")
@@ -510,11 +564,11 @@ class Task(WithDB):
                     self._remote,
                     "PUT",
                     f"/v1/tasks/{self._id}",
-                    json_data=self.to_update_schema().model_dump(),
+                    json_data=self.to_update_v1().model_dump(),
                 )
-                logger.debug("\nupdated existing task", self._id)
+                logger.debug("updated existing task", self._id)
             else:
-                logger.debug("\ncreating new task", self._id)
+                logger.debug("creating new task", self._id)
                 if self._version != new_version:
                     self._version = new_version
                     logger.debug(f"Version updated to {self._version}")
@@ -525,7 +579,7 @@ class Task(WithDB):
                     "/v1/tasks",
                     json_data=self.to_v1().model_dump(),
                 )
-                logger.debug("\ncreated new task", self._id)
+                logger.debug("created new task", self._id)
         else:
             logger.debug("saving local db task", self._id)
             if hasattr(self, "_version"):
@@ -599,6 +653,8 @@ class Task(WithDB):
             id=self._id,
             description=self._description if self._description else "",
             max_steps=self._max_steps,
+            device=self._device,
+            device_type=self.device_type,
             threads=[t.to_v1() for t in self._threads],
             prompts=[p.to_v1() for p in self._prompts],
             status=self._status,
@@ -606,6 +662,7 @@ class Task(WithDB):
             started=self._started,
             completed=self._completed,
             assigned_to=self._assigned_to,
+            assigned_type=self._assigned_type,
             error=self._error,
             output=self._output,
             parameters=self._parameters,
@@ -617,7 +674,7 @@ class Task(WithDB):
             episode_id=self._episode.id,
         )
 
-    def to_update_schema(self) -> V1TaskUpdate:
+    def to_update_v1(self) -> V1TaskUpdate:
         return V1TaskUpdate(
             description=self._description,
             max_steps=self._max_steps,
@@ -630,45 +687,47 @@ class Task(WithDB):
         )
 
     @classmethod
-    def from_v1(cls, schema: V1Task, owner_id: Optional[str] = None) -> "Task":
+    def from_v1(cls, v1: V1Task, owner_id: Optional[str] = None) -> "Task":
         obj = cls.__new__(cls)  # Create a new instance without calling __init__
 
-        owner_id = owner_id if owner_id else schema.owner_id
+        owner_id = owner_id if owner_id else v1.owner_id
         if not owner_id:
-            raise ValueError("Owner id is required in schema or as parameter")
+            raise ValueError("Owner id is required in v1 or as parameter")
 
         # Manually set attributes on the object
-        obj._id = schema.id if schema.id else str(uuid.uuid4())
+        obj._id = v1.id if v1.id else str(uuid.uuid4())
         obj._owner_id = owner_id
-        obj._description = schema.description
-        obj.max_steps = schema.max_steps
-        obj._status = schema.status if schema.status else "defined"
-        obj._created = schema.created
-        obj._started = schema.started
-        obj._completed = schema.completed
-        obj._assigned_to = schema.assigned_to
-        obj._error = schema.error
-        obj._output = schema.output
-        obj._version = schema.version
-        obj._remote = schema.remote
-        obj._parameters = schema.parameters
-        obj._remote = schema.remote
+        obj._description = v1.description
+        obj._max_steps = v1.max_steps
+        obj._device = v1.device
+        obj._device_type = v1.device_type
+        obj._status = v1.status if v1.status else "defined"
+        obj._created = v1.created
+        obj._started = v1.started
+        obj._completed = v1.completed
+        obj._assigned_to = v1.assigned_to
+        obj._error = v1.error
+        obj._output = v1.output
+        obj._version = v1.version
+        obj._remote = v1.remote
+        obj._parameters = v1.parameters
+        obj._remote = v1.remote
         obj._owner_id = owner_id
-        obj._tags = schema.tags
-        obj._labels = schema.labels
+        obj._tags = v1.tags
+        obj._labels = v1.labels
 
-        episodes = Episode.find(id=schema.episode_id)
+        episodes = Episode.find(id=v1.episode_id)
         if not episodes:
-            raise ValueError(f"Episode {schema.episode_id} not found")
+            raise ValueError(f"Episode {v1.episode_id} not found")
         obj._episode = episodes[0]
 
-        if schema.threads:
-            obj._threads = [RoleThread.from_v1(s) for s in schema.threads]
+        if v1.threads:
+            obj._threads = [RoleThread.from_v1(s) for s in v1.threads]
         else:
             obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
 
-        if schema.prompts:
-            obj._prompts = [Prompt.from_v1(p) for p in schema.prompts]
+        if v1.prompts:
+            obj._prompts = [Prompt.from_v1(p) for p in v1.prompts]
         else:
             obj._prompts = []
 
@@ -683,26 +742,27 @@ class Task(WithDB):
                 remote_task = self._remote_request(
                     self._remote, "GET", f"/v1/tasks/{self._id}", auth_token=auth_token
                 )
-                logger.debug("\nfound remote task", remote_task)
+                logger.debug("found remote task", remote_task)
                 if remote_task:
-                    schema = V1Task(**remote_task)
-                    self._description = schema.description
-                    self._max_steps = schema.max_steps
-                    self._status = schema.status if schema.status else "defined"
-                    self._created = schema.created
-                    self._started = schema.started
-                    self._completed = schema.completed
-                    self._assigned_to = schema.assigned_to
-                    self._error = schema.error
-                    self._output = schema.output
-                    self._version = schema.version
-                    self._parameters = schema.parameters
-                    if schema.threads:
-                        self._threads = [
-                            RoleThread.from_v1(wt) for wt in schema.threads
-                        ]
-                    if schema.prompts:
-                        self._prompts = [Prompt.from_v1(p) for p in schema.prompts]
+                    v1 = V1Task(**remote_task)
+                    self._description = v1.description
+                    self._max_steps = v1.max_steps
+                    self._device = v1.device
+                    self._device_type = v1.device_type
+                    self._status = v1.status if v1.status else "defined"
+                    self._created = v1.created
+                    self._started = v1.started
+                    self._completed = v1.completed
+                    self._assigned_to = v1.assigned_to
+                    self._assigned_type = v1.assigned_type
+                    self._error = v1.error
+                    self._output = v1.output
+                    self._version = v1.version
+                    self._parameters = v1.parameters
+                    if v1.threads:
+                        self._threads = [RoleThread.from_v1(wt) for wt in v1.threads]
+                    if v1.prompts:
+                        self._prompts = [Prompt.from_v1(p) for p in v1.prompts]
                     else:
                         self._prompts = []
                     logger.debug("\nrefreshed remote task", self._id)
