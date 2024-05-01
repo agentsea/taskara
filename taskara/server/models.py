@@ -59,25 +59,6 @@ class V1UserProfile(BaseModel):
     token: Optional[str] = None
 
 
-class V1Agent(BaseModel):
-    name: str
-    config: BaseModel
-
-
-class V1SolveTask(BaseModel):
-    task: V1Task
-    device: Optional[V1Device] = None
-    agent: Optional[V1Agent] = None
-    max_steps: int = 30
-
-
-class V1CreateTask(BaseModel):
-    task: V1Task
-    device: str
-    agent: Optional[V1Agent] = None
-    max_steps: int = 30
-
-
 class V1AddThread(BaseModel):
     public: bool
     name: Optional[str] = None

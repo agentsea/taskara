@@ -11,7 +11,6 @@ from taskara.server.models import (
     V1TaskUpdate,
     V1Task,
     V1Tasks,
-    V1CreateTask,
     V1UserProfile,
     V1PostMessage,
     V1AddThread,
@@ -25,20 +24,20 @@ router = APIRouter()
 @router.post("/v1/tasks", response_model=V1Task)
 async def create_task(
     current_user: Annotated[V1UserProfile, Depends(get_current_user)],
-    data: V1CreateTask,
+    data: V1Task,
 ):
     print("creating task with model: ", data.model_dump())
     task = Task(
         owner_id=current_user.email,
-        description=data.task.description,
+        description=data.description,
         status="created",
         created=time.time(),
         started=0.0,
         completed=0.0,
-        parameters=data.task.parameters if data.task.parameters else {},
+        parameters=data.parameters if data.parameters else {},
         error="",
         output="",
-        assigned_to=data.task.assigned_to,
+        assigned_to=data.assigned_to,
     )
 
     return task.to_v1()
