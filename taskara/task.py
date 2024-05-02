@@ -72,7 +72,7 @@ class Task(WithDB):
         self._episode = episode if episode else Episode()
 
         self._threads = []
-        self.create_thread("feed")
+        self.ensure_thread("feed")
         if threads:
             self._threads.extend(threads)
 
@@ -489,7 +489,7 @@ class Task(WithDB):
 
         logger.debug("creating thread")
 
-        existing_threads = RoleThread.find(name=name, owner_id=self.owner_id)
+        existing_threads = [t for t in self._threads if t.id == id or t.name == name]
         if existing_threads:
             raise ValueError(f"Thread with name '{name}' already exists")
         thread = RoleThread(self.owner_id, public, name, metadata)
