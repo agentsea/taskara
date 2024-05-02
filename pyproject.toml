@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taskara"
-version = "0.1.47"
+version = "0.1.48"
 description = "Task management for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "MIT"
@@ -10,9 +10,9 @@ readme = "README.md"
 python = "^3.10"
 sqlalchemy = "^2.0.29"
 pydantic = "^2.6.4"
-threadmem = "^0.2.25"
 devicebay = "^0.1.16"
 skillpacks = "^0.1.8"
+threadmem = "^0.2.26"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"

@@ -8,7 +8,7 @@ class TaskRecord(Base):
     __tablename__ = "tasks"
 
     id = Column(String, primary_key=True)
-    owner_id = Column(String, nullable=False)
+    owner_id = Column(String, nullable=True)
     description = Column(String, nullable=False)
     max_steps = Column(Integer, nullable=False, default=30)
     device = Column(String, nullable=True)

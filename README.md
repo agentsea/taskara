@@ -1,6 +1,26 @@
-# Taskara
+<!-- PROJECT LOGO -->
+<br />
+<p align="center">
+  <!-- <a href="https://github.com/agentsea/skillpacks">
+    <img src="https://project-logo.png" alt="Logo" width="80">
+  </a> -->
 
-Task management for AI agents
+  <h1 align="center">Taskara</h1>
+
+  <p align="center">
+    Task management for AI agents
+    <br />
+    <a href="https://github.com/agentsea/threadmem"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/agentsea/threadmem">View Demo</a>
+    ·
+    <a href="https://github.com/agentsea/threadmem/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/agentsea/threadmem/issues">Request Feature</a>
+  </p>
+  <br>
+</p>
 
 ## Installation
 
