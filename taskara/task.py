@@ -539,6 +539,7 @@ class Task(WithDB):
     def save(self) -> None:
         logger.debug("saving task", self._id)
         # Generate the new version hash
+        self._episode.save()
         new_version = self.generate_version_hash()
 
         if hasattr(self, "_remote") and self._remote:
