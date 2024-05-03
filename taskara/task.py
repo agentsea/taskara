@@ -707,6 +707,7 @@ class Task(WithDB):
         obj._started = v1.started
         obj._completed = v1.completed
         obj._assigned_to = v1.assigned_to
+        obj._assigned_type = v1.assigned_type
         obj._error = v1.error
         obj._output = v1.output
         obj._version = v1.version
