@@ -356,18 +356,18 @@ files = [
 
 [[package]]
 name = "devicebay"
-version = "0.1.17"
+version = "0.1.18"
 description = "Devices for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "devicebay-0.1.17-py3-none-any.whl", hash = "sha256:87ac62bdf5f13f5ac1ca185501ff825255cfb7e99c98c889d0c36976f3a394dd"},
-    {file = "devicebay-0.1.17.tar.gz", hash = "sha256:de572d9d7b18a3d59b691da6a32b135565e7c58931e08b43c1a54dc80baa8ae9"},
+    {file = "devicebay-0.1.18-py3-none-any.whl", hash = "sha256:860a69dce263874ae812da4230103235b63f6c480785368ae3cdae130121dcbe"},
+    {file = "devicebay-0.1.18.tar.gz", hash = "sha256:714f4bd4d596d4f81062afc8e71aa7d87d4ba042e4dd12bc0d5e891bb484f4fa"},
 ]
 
 [package.dependencies]
 sqlalchemy = ">=2.0.29,<3.0.0"
-toolfuse = ">=0.1.20,<0.2.0"
+toolfuse = ">=0.1.21,<0.2.0"
 
 [[package]]
 name = "distro"
@@ -2032,13 +2032,13 @@ typing-extensions = ">=4.6.3,<5.0.0"
 
 [[package]]
 name = "toolfuse"
-version = "0.1.20"
+version = "0.1.21"
 description = "Tools for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "toolfuse-0.1.20-py3-none-any.whl", hash = "sha256:6300b94a5833fa18b8ce8b9e30d099ce855532d00271991aa26f77e5dc57e24b"},
-    {file = "toolfuse-0.1.20.tar.gz", hash = "sha256:15223ad14cab059aae4b87da406aa86d5bd3bb58e69ede9adb00e6a3b6cea695"},
+    {file = "toolfuse-0.1.21-py3-none-any.whl", hash = "sha256:eaba12f6114c6b2248d965b872ecdcf94824c562f39875311c24adec67f1cc3c"},
+    {file = "toolfuse-0.1.21.tar.gz", hash = "sha256:0e3f0b6b142b14a79c42c9b3d1f1a620025ed23645c3357c5f4111e2c7326791"},
 ]
 
 [package.dependencies]
@@ -2528,4 +2528,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "4bed7c0dde29d6dc44c3c2915f883e1fae3bd25be166dd8e6ec45d1e64d17c64"
+content-hash = "12cfcf23d6b8d866d106a11993b334981f95ad16160a7964570fa248f2e3fd1e"
