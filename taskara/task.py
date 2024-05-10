@@ -446,6 +446,9 @@ class Task(WithDB):
                 V1Prompt(
                     thread=thread.to_v1(),
                     response=response.to_v1(),
+                    response_schema=(
+                        response_schema.model_json_schema() if response_schema else None
+                    ),
                     namespace=namespace,
                     metadata=metadata,
                     agent_id=agent_id,
@@ -465,6 +468,32 @@ class Task(WithDB):
             agent_id=agent_id,
             model=model,
         )
+        self._prompts.append(prompt)
+        self.save()
+
+    def add_prompt(
+        self,
+        prompt: Prompt,
+    ) -> None:
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("creting remote thread")
+            self._remote_request(
+                self._remote,
+                "POST",
+                f"/v1/tasks/{self._id}/prompts",
+                V1Prompt(
+                    thread=prompt.thread.to_v1(),
+                    response=prompt.response.to_v1(),
+                    response_schema=prompt.response_schema,
+                    namespace=prompt.namespace,
+                    metadata=prompt.metadata,
+                    agent_id=prompt.agent_id,
+                    model=prompt.model,
+                ).model_dump(),
+            )
+            logger.debug("stored prompt")
+            return
+
         self._prompts.append(prompt)
         self.save()
 
