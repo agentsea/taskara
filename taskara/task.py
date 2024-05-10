@@ -448,6 +448,8 @@ class Task(WithDB):
                     response=response.to_v1(),
                     namespace=namespace,
                     metadata=metadata,
+                    agent_id=agent_id,
+                    model=model,
                 ).model_dump(),
             )
             logger.debug("stored prompt")
