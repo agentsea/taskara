@@ -1,6 +1,7 @@
 import uuid
 import time
 from typing import List, Optional, TypeVar, Any, Dict
+from click import Option
 import requests
 import os
 import json
@@ -12,6 +13,7 @@ from threadmem import RoleThread, RoleMessage
 from mllm import Prompt
 from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef
 from devicebay import V1Device, V1DeviceType
+from pydantic import BaseModel
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
@@ -428,8 +430,12 @@ class Task(WithDB):
         self,
         thread: RoleThread,
         response: RoleMessage,
+        response_schema: Optional[type[BaseModel]] = None,
         namespace: str = "default",
         metadata: Dict[str, Any] = {},
+        owner_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> None:
         if hasattr(self, "_remote") and self._remote:
             logger.debug("creting remote thread")
@@ -447,7 +453,16 @@ class Task(WithDB):
             logger.debug("stored prompt")
             return
 
-        prompt = Prompt(thread, response, namespace, metadata)
+        prompt = Prompt(
+            thread=thread,
+            response=response,
+            response_schema=response_schema,
+            namespace=namespace,
+            metadata=metadata,
+            owner_id=owner_id,
+            agent_id=agent_id,
+            model=model,
+        )
         self._prompts.append(prompt)
         self.save()
 
