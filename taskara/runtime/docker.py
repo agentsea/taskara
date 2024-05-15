@@ -133,7 +133,6 @@ class DockerTaskServerRuntime(
         if not env_vars:
             env_vars = {}
 
-        env_vars["TASK_SERVER_PORT"] = str(port)
         if not auth_enabled:
             env_vars["TASK_SERVER_NO_AUTH"] = "true"
 
