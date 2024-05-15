@@ -168,15 +168,12 @@ async def record_action(
     task_id: str,
     data: V1ActionEvent,
 ):
-    print("\nposting prompt to task: ", data.model_dump())
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
 
     task.record_action_event(ActionEvent.from_v1(data))
-
-    print("\nrecorded action in task: ", task.__dict__)
     return
 
 

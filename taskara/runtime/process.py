@@ -333,7 +333,7 @@ class ProcessTaskServerRuntime(
         owner_id: Optional[str] = None,
     ) -> None:
         try:
-            # Fetch the list of all processes that were started with the 'SURFER' environment variable
+            # Fetch the list of all processes that were started with the 'TASK_SERVER' environment variable
             process_list = subprocess.check_output(
                 "ps ax -o pid,command | grep -v grep | grep TASK_SERVER",
                 shell=True,
