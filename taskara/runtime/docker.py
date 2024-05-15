@@ -72,7 +72,7 @@ class DockerTaskServerRuntime(
         except NotFound:
             raise ValueError(f"Container '{name}' not found")
 
-        # Construct the URL using the host network mode
+        # Construct the URL using the mapped port
         url = f"http://localhost:{port}{path}"
 
         # Create a request object based on the HTTP method
@@ -141,7 +141,8 @@ class DockerTaskServerRuntime(
             raise ValueError("img not found")
         container = self.client.containers.run(
             self.img,
-            network_mode="host",
+            network_mode="bridge",
+            ports={9070: port},
             environment=env_vars,
             detach=True,
             labels=_labels,
@@ -208,13 +209,13 @@ class DockerTaskServerRuntime(
             for container in containers:
                 server_name = container.name
 
-                # Extract the SURF_PORT environment variable
+                # Extract the TASK_SERVER_PORT environment variable
                 env_vars = container.attrs.get("Config", {}).get("Env", [])
                 port = next(
                     (
                         int(var.split("=")[1])
                         for var in env_vars
-                        if var.startswith("SURF_PORT=")
+                        if var.startswith("TASK_SERVER_PORT=")
                     ),
                     9070,
                 )
@@ -239,13 +240,13 @@ class DockerTaskServerRuntime(
             try:
                 container = self.client.containers.get(name)
 
-                # Extract the SURF_PORT environment variable
+                # Extract the TASK_SERVER_PORT environment variable
                 env_vars = container.attrs.get("Config", {}).get("Env", [])
                 port = next(
                     (
                         int(var.split("=")[1])
                         for var in env_vars
-                        if var.startswith("SURF_PORT=")
+                        if var.startswith("TASK_SERVER_PORT=")
                     ),
                     9070,
                 )
@@ -287,7 +288,7 @@ class DockerTaskServerRuntime(
 
     def clean(self, owner_id: Optional[str] = None) -> None:
         # Define the filter for containers with the specific label
-        label_filter = {"label": ["provisioner=surfkit"]}
+        label_filter = {"label": ["provisioner=taskara"]}
 
         # Use the filter to list containers
         containers = self.client.containers.list(filters=label_filter, all=True)
