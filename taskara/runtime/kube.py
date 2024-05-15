@@ -45,7 +45,7 @@ class KubeConnectConfig(BaseModel):
     namespace: str = "default"
     gke_opts: Optional[GKEOpts] = None
     local_opts: Optional[LocalOpts] = None
-    image: str = "us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cd93cd4"
+    image: str = "us-central1-docker.pkg.dev/agentsea-dev/taskara/api:latest"
 
 
 class KubeTaskServerRuntime(

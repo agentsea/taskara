@@ -3,6 +3,7 @@ import logging
 import os
 import time
 import requests
+from typing import Optional
 
 from threadmem.server.models import V1UserProfile
 from .key import KeyProvider, default_key_provider, MockProvider
@@ -23,7 +24,9 @@ class HubAuthProvider(AuthProvider):
 
     _key_provider: KeyProvider
 
-    def __init__(self, key_provider: KeyProvider = default_key_provider()) -> None:
+    def __init__(self, key_provider: Optional[KeyProvider] = None) -> None:
+        if not key_provider:
+            key_provider = default_key_provider()
         self.hub_url = os.environ.get("AGENTSEA_HUB_URL")
         if not self.hub_url:
             raise ValueError(

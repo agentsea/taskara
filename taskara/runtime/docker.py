@@ -23,7 +23,7 @@ from .base import TaskServer, TaskServerRuntime
 
 class DockerConnectConfig(BaseModel):
     timeout: Optional[int] = None
-    image: str = "us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cd93cd4"
+    image: str = "us-central1-docker.pkg.dev/agentsea-dev/taskara/api:latest"
 
 
 class DockerTaskServerRuntime(
@@ -129,7 +129,6 @@ class DockerTaskServerRuntime(
         port = find_open_port(9070, 10090)
         if not port:
             raise ValueError("Could not find open port")
-        print("running container")
 
         if not env_vars:
             env_vars = {}
