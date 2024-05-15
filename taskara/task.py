@@ -903,10 +903,11 @@ class Task(WithDB):
         headers = {}
         if not auth_token:
             auth_token = os.getenv(HUB_API_KEY_ENV)
-            if not auth_token:
-                raise Exception(f"Hub API key not found, set ${HUB_API_KEY_ENV}")
-        logger.debug(f"auth_token: {auth_token}")
-        headers["Authorization"] = f"Bearer {auth_token}"
+            logger.debug(f"using hub auth token found in env var {HUB_API_KEY_ENV}")
+
+        if auth_token:
+            logger.debug(f"auth_token: {auth_token}")
+            headers["Authorization"] = f"Bearer {auth_token}"
         try:
             if method.upper() == "GET":
                 logger.debug("\ncalling remote task GET with url: ", url)
