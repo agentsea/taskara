@@ -167,10 +167,6 @@ class TaskServer(WithDB):
 
     @classmethod
     def from_record(cls, record: TaskServerRecord) -> "TaskServer":
-        servers = TaskServer.find(name=str(record.name))
-        if not servers:
-            raise ValueError(f"Unknown server: {record.name}")
-
         from taskara.runtime.load import runtime_from_name
 
         runtype = runtime_from_name(str(record.runtime_name))
