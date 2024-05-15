@@ -88,9 +88,9 @@ class TaskServer(WithDB):
 
     def delete(self, force: bool = False) -> None:
         """
-        Deletes the agent instance from the runtime and the database.
+        Deletes the server instance from the runtime and the database.
         """
-        # First, delete the agent instance from the runtime.
+        # First, delete the server instance from the runtime.
         try:
             self._runtime.delete(self._name)
         except Exception as e:
@@ -167,9 +167,9 @@ class TaskServer(WithDB):
 
     @classmethod
     def from_record(cls, record: TaskServerRecord) -> "TaskServer":
-        types = TaskServer.find(name=str(record.type))
-        if not types:
-            raise ValueError(f"Unknown agent type: {record.type}")
+        servers = TaskServer.find(name=str(record.name))
+        if not servers:
+            raise ValueError(f"Unknown server: {record.name}")
 
         from taskara.runtime.load import runtime_from_name
 

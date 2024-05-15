@@ -159,25 +159,25 @@ class DockerTaskServerRuntime(
             owner_id=owner_id,
         )
 
-    def _handle_logs_with_attach(self, agent_name: str, attach: bool):
+    def _handle_logs_with_attach(self, server_name: str, attach: bool):
         if attach:
             # Setup the signal handler to catch interrupt signals
-            signal.signal(signal.SIGINT, self._signal_handler(agent_name))
+            signal.signal(signal.SIGINT, self._signal_handler(server_name))
 
         try:
-            for line in self.logs(agent_name, follow=True):
+            for line in self.logs(server_name, follow=True):
                 print(line)
         except KeyboardInterrupt:
             # This block will be executed if SIGINT is caught
-            print(f"Interrupt received, stopping logs for '{agent_name}'")
-            self.delete(agent_name)
+            print(f"Interrupt received, stopping logs for '{server_name}'")
+            self.delete(server_name)
         except Exception as e:
             print(f"Error while streaming logs: {e}")
 
-    def _signal_handler(self, agent_name: str):
+    def _signal_handler(self, server_name: str):
         def handle_signal(signum, frame):
-            print(f"Signal {signum} received, stopping container '{agent_name}'")
-            self.delete(agent_name)
+            print(f"Signal {signum} received, stopping container '{server_name}'")
+            self.delete(server_name)
             sys.exit(1)
 
         return handle_signal
@@ -207,11 +207,7 @@ class DockerTaskServerRuntime(
             containers = self.client.containers.list(filters=label_filter)
 
             for container in containers:
-                agent_type_model = container.labels.get("agent_type_model")
-                if not agent_type_model:
-                    continue  # Skip containers where the agent type model is not found
-
-                agent_name = container.name
+                server_name = container.name
 
                 # Extract the SURF_PORT environment variable
                 env_vars = container.attrs.get("Config", {}).get("Env", [])
@@ -225,7 +221,7 @@ class DockerTaskServerRuntime(
                 )
 
                 instance = TaskServer(
-                    name=agent_name,
+                    name=server_name,
                     runtime=self,
                     port=port,
                     status="running",

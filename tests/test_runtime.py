@@ -172,8 +172,3 @@ def test_process_task_server_runtime():
             server.delete()
         except:
             pass
-
-    print("All tests passed!")
-
-
-test_process_task_server_runtime()

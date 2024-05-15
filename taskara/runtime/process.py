@@ -85,7 +85,7 @@ class ProcessTaskServerRuntime(
             json.dump(metadata, f, indent=4)
 
         os.makedirs(f".data/logs", exist_ok=True)
-        print(f"running agent on port {port}")
+        print(f"running server on port {port}")
 
         environment = os.environ.copy()
         process = subprocess.Popen(
@@ -123,7 +123,7 @@ class ProcessTaskServerRuntime(
                 logger.warning("Agent not yet available, retrying...")
             time.sleep(retry_delay)
         else:
-            raise RuntimeError("Failed to start agent, it did not pass health checks.")
+            raise RuntimeError("Failed to start server, it did not pass health checks.")
 
         return TaskServer(
             name=name,
@@ -134,19 +134,19 @@ class ProcessTaskServerRuntime(
             owner_id=owner_id,
         )
 
-    def _signal_handler(self, agent_name: str):
+    def _signal_handler(self, server_name: str):
         def handle_signal(signum, frame):
-            print(f"Signal {signum} received, stopping process '{agent_name}'")
-            self.delete(agent_name)
-            instances = TaskServer.find(name=agent_name)
+            print(f"Signal {signum} received, stopping process '{server_name}'")
+            self.delete(server_name)
+            instances = TaskServer.find(name=server_name)
             if instances:
                 instances[0].delete()
             sys.exit(1)
 
         return handle_signal
 
-    def _follow_logs(self, agent_name: str):
-        log_path = f"./.data/logs/{agent_name.lower()}.log"
+    def _follow_logs(self, server_name: str):
+        log_path = f"./.data/logs/{server_name.lower()}.log"
         if not os.path.exists(log_path):
             logger.error("No log file found.")
             return
@@ -163,8 +163,8 @@ class ProcessTaskServerRuntime(
                     print(line.strip())
             except KeyboardInterrupt:
                 # Handle Ctrl+C gracefully if we are attached to the logs
-                print(f"Interrupt received, stopping logs for '{agent_name}'")
-                self.delete(agent_name)
+                print(f"Interrupt received, stopping logs for '{server_name}'")
+                self.delete(server_name)
                 raise
 
     def requires_proxy(self) -> bool:
@@ -197,14 +197,14 @@ class ProcessTaskServerRuntime(
                     port=metadata["port"],
                 )
             except FileNotFoundError:
-                raise ValueError(f"No metadata found for agent {name}")
+                raise ValueError(f"No metadata found for server {name}")
 
         else:
             instances = TaskServer.find(
                 name=name, owner_id=owner_id, runtime_name=self.name()
             )
             if len(instances) == 0:
-                raise ValueError(f"No running agent found with the name {name}")
+                raise ValueError(f"No running server found with the name {name}")
             return instances[0]
 
     def list(
@@ -367,7 +367,7 @@ class ProcessTaskServerRuntime(
     ) -> Union[str, Iterator[str]]:
         log_path = f"./.data/logs/{name.lower()}.log"
         if not os.path.exists(log_path):
-            return "No logs available for this agent."
+            return "No logs available for this server."
 
         if follow:
             # If follow is True, implement a simple follow (like 'tail -f')

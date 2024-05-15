@@ -622,10 +622,6 @@ class KubeTaskServerRuntime(
                     namespace=self.namespace, label_selector="provisioner=surfkit"
                 )
                 for pod in pods.items:
-                    agent_type_model = pod.metadata.annotations.get("agent_model")
-                    if not agent_type_model:
-                        continue  # Skip if no agent model annotation
-
                     name = pod.metadata.name
 
                     instances.append(
@@ -651,10 +647,6 @@ class KubeTaskServerRuntime(
                 pod = self.core_api.read_namespaced_pod(
                     name=name, namespace=self.namespace
                 )
-                agent_type_model = pod.metadata.annotations.get("agent_model")  # type: ignore
-                if not agent_type_model:
-                    raise ValueError("Agent model annotation missing in pod metadata")
-
                 return TaskServer(name=name, runtime=self, status="running", port=9070)
             except ApiException as e:
                 print(f"Failed to get pod '{name}': {e}")
@@ -665,7 +657,7 @@ class KubeTaskServerRuntime(
                 name=name, owner_id=owner_id, runtime_name=self.name()
             )
             if not instances:
-                raise ValueError(f"No agent instance found with name '{name}'")
+                raise ValueError(f"No server instance found with name '{name}'")
             return instances[0]
 
     def delete(
@@ -738,30 +730,32 @@ class KubeTaskServerRuntime(
             owner_id=owner_id,
         )
 
-    def _handle_logs_with_attach(self, agent_name: str, attach: bool):
+    def _handle_logs_with_attach(self, server_name: str, attach: bool):
         if attach:
             # Setup the signal handler to catch interrupt signals
-            signal.signal(signal.SIGINT, self._signal_handler(agent_name))
+            signal.signal(signal.SIGINT, self._signal_handler(server_name))
 
         try:
-            log_lines = self.logs(name=agent_name, follow=True)
+            log_lines = self.logs(name=server_name, follow=True)
             for line in log_lines:
                 print(line.decode("utf-8"))  # type: ignore
         except KeyboardInterrupt:
             # This block will be executed if SIGINT is caught
-            print(f"Interrupt received, stopping logs and deleting pod '{agent_name}'")
-            self.delete(agent_name)
+            print(f"Interrupt received, stopping logs and deleting pod '{server_name}'")
+            self.delete(server_name)
         except ApiException as e:
-            print(f"Failed to follow logs for pod '{agent_name}': {e}")
+            print(f"Failed to follow logs for pod '{server_name}': {e}")
             raise
         except Exception as e:
             print(f"An error occurred while fetching logs: {e}")
             raise
 
-    def _signal_handler(self, agent_name: str):
+    def _signal_handler(self, server_name: str):
         def handle_signal(signum, frame):
-            print(f"Signal {signum} received, stopping and deleting pod '{agent_name}'")
-            self.delete(agent_name)
+            print(
+                f"Signal {signum} received, stopping and deleting pod '{server_name}'"
+            )
+            self.delete(server_name)
             sys.exit(1)
 
         return handle_signal
