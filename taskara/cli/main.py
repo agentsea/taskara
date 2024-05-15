@@ -33,6 +33,7 @@ app.add_typer(list_group, name="list")
 app.add_typer(get_group, name="get")
 app.add_typer(view_group, name="view")
 app.add_typer(delete_group, name="delete")
+app.add_typer(clean_group, name="clean")
 
 
 # Callback for showing help
@@ -94,9 +95,9 @@ def view_default(ctx: typer.Context):
 
 
 # 'clean' command group callback
-# @clean_group.callback(invoke_without_command=True)
-# def clean_default(ctx: typer.Context):
-#     show_help(ctx, "clean")
+@clean_group.callback(invoke_without_command=True)
+def clean_default(ctx: typer.Context):
+    show_help(ctx, "clean")
 
 
 # 'create' sub-commands
