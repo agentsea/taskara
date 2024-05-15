@@ -23,7 +23,7 @@ from .base import TaskServer, TaskServerRuntime
 
 class DockerConnectConfig(BaseModel):
     timeout: Optional[int] = None
-    image: str = "us-central1-docker.pkg.dev/agentsea-dev/taskara/api:latest"
+    image: str = "us-central1-docker.pkg.dev/agentsea-dev/taskara/api:cd93cd4"
 
 
 class DockerTaskServerRuntime(
@@ -266,7 +266,7 @@ class DockerTaskServerRuntime(
                 name=name, owner_id=owner_id, runtime_name=self.name()
             )
             if not instances:
-                raise ValueError(f"Agent instance '{name}' not found")
+                raise ValueError(f"Task server '{name}' not found")
             return instances[0]
 
     def delete(self, name: str, owner_id: Optional[str] = None) -> None:
