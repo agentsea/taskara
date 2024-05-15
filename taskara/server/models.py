@@ -2,10 +2,9 @@ from typing import Optional, List, Dict, Any
 import uuid
 import time
 
-from threadmem.server.models import V1RoleThread, V1RoleMessage
+from threadmem.server.models import V1RoleThread
 from pydantic import BaseModel, Field
 from devicebay.models import V1Device
-from mllm import V1Prompt
 from devicebay import V1Device, V1DeviceType
 
 
@@ -28,7 +27,7 @@ class V1Task(BaseModel):
     device_type: Optional[V1DeviceType] = None
     status: Optional[str] = None
     threads: Optional[List[V1RoleThread]] = None
-    prompts: Optional[List[V1Prompt]] = None
+    prompts: Optional[List[str]] = None
     assigned_to: Optional[str] = None
     assigned_type: Optional[str] = None
     created: float = Field(default_factory=time.time)
@@ -75,3 +74,37 @@ class V1PostMessage(BaseModel):
     msg: str
     images: List[str] = []
     thread: Optional[str] = None
+
+
+class V1TaskRuntimeConnect(BaseModel):
+    name: str
+    connect_config: BaseModel
+
+
+class V1TaskServer(BaseModel):
+    name: str
+    runtime: V1TaskRuntimeConnect
+    version: Optional[str] = None
+    port: int = 9090
+    labels: Dict[str, str] = {}
+    tags: List[str] = []
+    status: str
+    owner_id: Optional[str] = None
+    created: float
+    updated: float
+
+
+class V1Runtime(BaseModel):
+    type: str
+    preference: List[str] = []
+
+
+class V1ResourceLimits(BaseModel):
+    cpu: str = "2"
+    memory: str = "2Gi"
+
+
+class V1ResourceRequests(BaseModel):
+    cpu: str = "1"
+    memory: str = "500m"
+    gpu: Optional[str] = None

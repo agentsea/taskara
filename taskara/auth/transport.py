@@ -1,8 +1,8 @@
 from typing import Annotated
 import logging
+import os
 
 from fastapi import HTTPException, Depends
-
 from fastapi.security import OAuth2PasswordBearer
 
 from threadmem.server.models import V1UserProfile
@@ -26,3 +26,19 @@ async def get_current_user(
         )
 
     return user
+
+
+async def get_user_mock_auth() -> V1UserProfile:
+    # Return a dummy user profile when authentication is disabled
+    return V1UserProfile(
+        email="tom@myspace.com",
+        display_name="tom",
+        picture="https://i.insider.com/4efd9b8b69bedd682c000022?width=750&format=jpeg&auto=webp",
+    )
+
+
+def get_user_dependency():
+    if os.getenv("TASK_SERVER_NO_AUTH", "false").lower() == "true":
+        return get_user_mock_auth
+    else:
+        return get_current_user

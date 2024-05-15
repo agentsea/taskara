@@ -10,14 +10,14 @@ import logging
 import copy
 
 from threadmem import RoleThread, RoleMessage
-from mllm import Prompt
-from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef
+from mllm import Prompt, V1Prompt
+from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef, V1ActionEvent
 from devicebay import V1Device, V1DeviceType
 from pydantic import BaseModel
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
-from .server.models import V1Prompt, V1Task, V1TaskUpdate, V1Tasks
+from .server.models import V1Task, V1TaskUpdate, V1Tasks
 from .env import HUB_API_KEY_ENV
 
 T = TypeVar("T", bound="Task")
@@ -389,6 +389,36 @@ class Task(WithDB):
     ) -> ActionEvent:
         if not owner_id:
             owner_id = self.owner_id
+
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("posting msg to remote task", self._id)
+            try:
+                if isinstance(prompt, str):
+                    prompt = Prompt.find(id=prompt)[0]
+
+                event = ActionEvent(
+                    prompt=prompt,
+                    action=action,
+                    tool=tool,
+                    result=result,
+                    namespace=namespace,
+                    metadata=metadata,
+                    owner_id=owner_id,
+                    model=model,
+                    agent_id=agent_id,
+                )
+                data = event.to_v1().model_dump()
+                self._remote_request(
+                    self._remote,
+                    "POST",
+                    f"/v1/tasks/{self.id}/actions",
+                    data,
+                )
+                return event
+
+            except Exception as e:
+                print("failed to post message to remote: ", e)
+                raise
         return self._episode.record(
             prompt=prompt,
             action=action,
@@ -400,6 +430,28 @@ class Task(WithDB):
             model=model,
             agent_id=agent_id,
         )
+
+    def record_action_event(
+        self,
+        event: ActionEvent,
+    ) -> None:
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("posting msg to remote task", self._id)
+            try:
+                data = event.to_v1().model_dump()
+                self._remote_request(
+                    self._remote,
+                    "POST",
+                    f"/v1/tasks/{self.id}/actions",
+                    data,
+                )
+                return
+
+            except Exception as e:
+                print("failed to post message to remote: ", e)
+                raise
+        self._episode.record_event(event)
+        return
 
     def copy(self) -> "Task":
         """
@@ -436,10 +488,10 @@ class Task(WithDB):
         owner_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         model: Optional[str] = None,
-    ) -> None:
+    ) -> str:
         if hasattr(self, "_remote") and self._remote:
             logger.debug("creting remote thread")
-            self._remote_request(
+            resp = self._remote_request(
                 self._remote,
                 "POST",
                 f"/v1/tasks/{self._id}/prompts",
@@ -456,7 +508,7 @@ class Task(WithDB):
                 ).model_dump(),
             )
             logger.debug("stored prompt")
-            return
+            return resp["id"]
 
         prompt = Prompt(
             thread=thread,
@@ -470,6 +522,7 @@ class Task(WithDB):
         )
         self._prompts.append(prompt)
         self.save()
+        return prompt.id
 
     def add_prompt(
         self,
@@ -703,7 +756,7 @@ class Task(WithDB):
             device=self._device,
             device_type=self.device_type,
             threads=[t.to_v1() for t in self._threads],
-            prompts=[p.to_v1() for p in self._prompts],
+            prompts=[p.id for p in self._prompts],
             status=self._status,
             created=self._created,
             started=self._started,
@@ -775,7 +828,7 @@ class Task(WithDB):
             obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
 
         if v1.prompts:
-            obj._prompts = [Prompt.from_v1(p) for p in v1.prompts]
+            obj._prompts = [Prompt.find(id=p)[0] for p in v1.prompts]
         else:
             obj._prompts = []
 
@@ -810,14 +863,32 @@ class Task(WithDB):
                     if v1.threads:
                         self._threads = [RoleThread.from_v1(wt) for wt in v1.threads]
                     if v1.prompts:
-                        self._prompts = [Prompt.from_v1(p) for p in v1.prompts]
+                        self._prompts = [Prompt.find(id=p)[0] for p in v1.prompts]
                     else:
                         self._prompts = []
                     logger.debug("\nrefreshed remote task", self._id)
             except requests.RequestException as e:
                 raise e
         else:
-            raise ValueError("Refresh is only supported for remote tasks")
+            tasks = self.find(id=self._id)
+            task = tasks[0]
+            self._description = task._description
+            self._max_steps = task._max_steps
+            self._device = task._device
+            self._device_type = task._device_type
+            self._status = task._status
+            self._created = task._created
+            self._started = task._started
+            self._completed = task._completed
+            self._assigned_to = task._assigned_to
+            self._assigned_type = task._assigned_type
+            self._error = task._error
+            self._output = task._output
+            self._version = task._version
+            self._parameters = task._parameters
+            self._threads = task._threads
+            self._prompts = task._prompts
+            logger.debug("\nrefreshed local task", self._id)
 
     @classmethod
     def _remote_request(

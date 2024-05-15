@@ -1,5 +1,6 @@
 import logging.config
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,4 +82,7 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app=app, host="0.0.0.0", port=8088)  # type: ignore
+    port = int(os.getenv("TASK_SERVER_PORT", "9070"))
+    reload = os.getenv("TASK_SERVER_RELOAD", "false") == "true"
+
+    uvicorn.run(app="taskara.server.app:app", host="0.0.0.0", port=port, reload=reload)

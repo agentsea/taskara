@@ -3,11 +3,11 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from threadmem import RoleMessage, RoleThread
-from mllm import Prompt
+from mllm import Prompt, V1Prompt
+from skillpacks import V1ActionEvent, ActionEvent
 
 from taskara import Task
 from taskara.server.models import (
-    V1Prompt,
     V1TaskUpdate,
     V1Task,
     V1Tasks,
@@ -16,14 +16,14 @@ from taskara.server.models import (
     V1AddThread,
     V1RemoveThread,
 )
-from taskara.auth.transport import get_current_user
+from taskara.auth.transport import get_user_dependency
 
 router = APIRouter()
 
 
 @router.post("/v1/tasks", response_model=V1Task)
 async def create_task(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)],
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     data: V1Task,
 ):
     print("creating task with model: ", data.model_dump())
@@ -31,12 +31,7 @@ async def create_task(
         owner_id=current_user.email,
         description=data.description,
         status="created",
-        created=time.time(),
-        started=0.0,
-        completed=0.0,
         parameters=data.parameters if data.parameters else {},
-        error="",
-        output="",
         assigned_to=data.assigned_to,
     )
 
@@ -44,14 +39,16 @@ async def create_task(
 
 
 @router.get("/v1/tasks", response_model=V1Tasks)
-async def get_tasks(current_user: Annotated[V1UserProfile, Depends(get_current_user)]):
+async def get_tasks(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())]
+):
     tasks = Task.find(owner_id=current_user.email)
     return V1Tasks(tasks=[task.to_v1() for task in tasks])
 
 
 @router.get("/v1/tasks/{task_id}", response_model=V1Task)
 async def get_task(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)], task_id: str
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
 ):
     print("\nfinding task by id: ", task_id)
     tasks = Task.find(id=task_id, owner_id=current_user.email)
@@ -65,7 +62,7 @@ async def get_task(
 
 @router.delete("/v1/tasks/{task_id}")
 async def delete_task(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)], task_id: str
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
 ):
     Task.delete(id=task_id, owner_id=current_user.email)  # type: ignore
     return {"message": "Task deleted successfully"}
@@ -73,7 +70,7 @@ async def delete_task(
 
 @router.put("/v1/tasks/{task_id}", response_model=V1Task)
 async def update_task(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)],
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     data: V1TaskUpdate,
 ):
@@ -103,7 +100,7 @@ async def update_task(
 
 @router.post("/v1/tasks/{task_id}/msg")
 async def post_task_msg(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)],
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     data: V1PostMessage,
 ):
@@ -120,7 +117,7 @@ async def post_task_msg(
 
 @router.post("/v1/tasks/{task_id}/prompts")
 async def store_prompt(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)],
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     data: V1Prompt,
 ):
@@ -130,29 +127,30 @@ async def store_prompt(
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
 
-    task.store_prompt(
+    id = task.store_prompt(
         thread=RoleThread.from_v1(data.thread),
         response=RoleMessage.from_v1(data.response),
         namespace=data.namespace,
         metadata=data.metadata,
+        owner_id=current_user.email,
     )
 
     print("\nstored prompt in task: ", task.__dict__)
-    return
+    return {"id": id}
 
 
 @router.post("/v1/tasks/{task_id}/prompts/{prompt_id}/approve")
 async def approve_prompt(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)],
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
-    promt_id: str,
+    prompt_id: str,
 ):
     tasks = Task.find(id=task_id, owner_id=current_user.email)
     if not tasks:
         raise HTTPException(status_code=404, detail="Task not found")
     task = tasks[0]
 
-    prompts = Prompt.find(id=promt_id, owner_id=current_user.email)
+    prompts = Prompt.find(id=prompt_id, owner_id=current_user.email)
     if not prompts:
         raise HTTPException(status_code=404, detail="Prompt not found")
     prompt = prompts[0]
@@ -164,9 +162,27 @@ async def approve_prompt(
     return
 
 
+@router.post("/v1/tasks/{task_id}/actions")
+async def record_action(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    data: V1ActionEvent,
+):
+    print("\nposting prompt to task: ", data.model_dump())
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    task.record_action_event(ActionEvent.from_v1(data))
+
+    print("\nrecorded action in task: ", task.__dict__)
+    return
+
+
 @router.post("/v1/tasks/{task_id}/threads")
 async def create_thread(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)],
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     data: V1AddThread,
 ):
@@ -182,7 +198,7 @@ async def create_thread(
 
 @router.delete("/v1/tasks/{task_id}/threads")
 async def remove_thread(
-    current_user: Annotated[V1UserProfile, Depends(get_current_user)],
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     data: V1RemoveThread,
 ):

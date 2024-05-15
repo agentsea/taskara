@@ -1,3 +1,5 @@
+import time
+
 from sqlalchemy import Column, String, Float, Integer
 from sqlalchemy.orm import declarative_base
 
@@ -28,3 +30,18 @@ class TaskRecord(Base):
     tags = Column(String, nullable=True)
     labels = Column(String, nullable=True)
     episode_id = Column(String, nullable=True)
+
+
+class TaskServerRecord(Base):
+    __tablename__ = "task_servers"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, unique=True, index=True)
+    runtime_name = Column(String)
+    runtime_config = Column(String)
+    status = Column(String)
+    port = Column(Integer)
+    owner_id = Column(String, nullable=True)
+    labels = Column(String, nullable=True)
+    created = Column(Float, default=time.time)
+    updated = Column(Float, default=time.time)
