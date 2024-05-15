@@ -1,7 +1,6 @@
 import uuid
 import time
 from typing import List, Optional, TypeVar, Any, Dict
-from click import Option
 import requests
 import os
 import json
@@ -11,7 +10,7 @@ import copy
 
 from threadmem import RoleThread, RoleMessage
 from mllm import Prompt, V1Prompt
-from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef, V1ActionEvent
+from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef
 from devicebay import V1Device, V1DeviceType
 from pydantic import BaseModel
 
@@ -74,7 +73,6 @@ class Task(WithDB):
         self._episode = episode if episode else Episode()
 
         self._threads = []
-        self.ensure_thread("feed")
         if threads:
             self._threads.extend(threads)
 
@@ -82,22 +80,8 @@ class Task(WithDB):
 
         if not self._remote and not self._description:
             raise ValueError("Task must have a description or a remote task")
-        if self._remote:
-            if not self._id:
-                raise ValueError("ID must be set for remote tasks")
-            logger.debug("calling remote task", self._id)
-            existing_task = self._remote_request(
-                self._remote, "GET", f"/v1/tasks/{self._id}"
-            )
-            if not existing_task:
-                raise ValueError("Remote task not found")
-            logger.debug("\nfound existing task", existing_task)
-            self.refresh()
-            logger.debug("\nrefreshed tasks")
-            logger.debug("\ntask: ", self.__dict__)
-        else:
-            self._remote = None
-            self.save()
+        self.save()
+        self.ensure_thread("feed")
 
     @property
     def id(self) -> str:
