@@ -111,25 +111,22 @@ def test_process_task_server_runtime():
         assert status == 200
 
         # Store a prompt in the task
-        prompt = V1Prompt(
-            thread=V1RoleThread(
+        prompt = Prompt(
+            thread=RoleThread(
                 name="test-thread",
                 public=True,
-                id="123",
-                messages=[],
-                created=0.0,
-                updated=0.0,
             ),
-            response=V1RoleMessage(
+            response=RoleMessage(
                 id="123",
                 role="assistant",
                 text="This is a test response",
                 images=[],
-                created=0.0,
             ),
         )
         status, resp = server.call(
-            path=f"/v1/tasks/{task_id}/prompts", method="POST", data=prompt.model_dump()
+            path=f"/v1/tasks/{task_id}/prompts",
+            method="POST",
+            data=prompt.to_v1().model_dump(),
         )
         print("store prompt status: ", status)
         assert status == 200
@@ -148,18 +145,18 @@ def test_process_task_server_runtime():
 
         # Store an action event
         action_event = ActionEvent(
-            prompt=Prompt.from_v1(prompt),
+            prompt=prompt,
             action=V1Action(name="test", parameters={}),
             tool=V1ToolRef(module="test", name="test"),
         )
 
-        # status, _ = server.call(
-        #     path=f"/v1/tasks/{task_id}/actions",
-        #     method="POST",
-        #     data=action_event.to_v1().model_dump(),
-        # )
-        # print("store action status: ", status)
-        # assert status == 200
+        status, _ = server.call(
+            path=f"/v1/tasks/{task_id}/actions",
+            method="POST",
+            data=action_event.to_v1().model_dump(),
+        )
+        print("store action status: ", status)
+        assert status == 200
 
         status, resp_text = server.call(
             path=f"/v1/tasks/{task_id}",
