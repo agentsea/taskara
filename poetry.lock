@@ -1268,13 +1268,13 @@ files = [
 
 [[package]]
 name = "mllm"
-version = "0.1.27"
+version = "0.1.28"
 description = "Multimodal Large Language Models"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "mllm-0.1.27-py3-none-any.whl", hash = "sha256:4bf3e9c5c7fdd81961952db0dd952fcc2247c733c5111922210d4707ec32156e"},
-    {file = "mllm-0.1.27.tar.gz", hash = "sha256:1a8404c8f30e3c50016f140f421844db461aeea96f756156fa9364c4cf2f6fbc"},
+    {file = "mllm-0.1.28-py3-none-any.whl", hash = "sha256:19bb3581b77b4aa0210ae37969f82f1c8e5bf20a39f2e0ecabbe51bc18bcdd43"},
+    {file = "mllm-0.1.28.tar.gz", hash = "sha256:5d60ef31afbb04b7fd185daad859be6a60bb33afe9764ff3f2aee2524a9db37a"},
 ]
 
 [package.dependencies]
@@ -2177,17 +2177,17 @@ files = [
 
 [[package]]
 name = "skillpacks"
-version = "0.1.24"
+version = "0.1.27"
 description = "Pluggable skills for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "skillpacks-0.1.24-py3-none-any.whl", hash = "sha256:9e7d1d2d5660612bc448b33fcd76e38ddd5c7d166fadc749c696dc598de59e98"},
-    {file = "skillpacks-0.1.24.tar.gz", hash = "sha256:7dd7a8171e1dcf788279b8c96c37d94bf093869c82c447c569df77210291871c"},
+    {file = "skillpacks-0.1.27-py3-none-any.whl", hash = "sha256:56b2f6f8298b64473eebfb01000c076a7c07710ecb453f0246bcbda87b4d121b"},
+    {file = "skillpacks-0.1.27.tar.gz", hash = "sha256:e763674e1b1848e385f1bdd73c75871c0f18a4c9e8d9564cc69f456da6ddda38"},
 ]
 
 [package.dependencies]
-mllm = ">=0.1.27,<0.2.0"
+mllm = ">=0.1.28,<0.2.0"
 pydantic = ">=2.6.1,<3.0.0"
 sqlalchemy = ">=2.0.27,<3.0.0"
 
@@ -3096,4 +3096,4 @@ runtime = ["docker", "google-auth", "google-cloud-container", "kubernetes"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "4593807d61137b0fd8bc24394838e3b9d4cbed1d89ff594825997fa9cfaeaba9"
+content-hash = "132db8ecc72e39b01ca5ce443c42938ea518b2c6668cdd3c4151c3055c9c839a"
