@@ -27,6 +27,17 @@ async def create_task(
     data: V1Task,
 ):
     print("creating task with model: ", data.model_dump())
+
+    episode = None
+    if data.episode_id:
+        episodes = Episode.find(id=data.episode_id, owner_id=current_user.email)
+        if not episodes:
+            raise HTTPException(status_code=404, detail="Episode not found")
+        episode = episodes[0]
+
+    if not episode:
+        episode = Episode()
+
     task = Task(
         id=data.id,
         max_steps=data.max_steps,
@@ -40,6 +51,7 @@ async def create_task(
         assigned_type=data.assigned_type,
         labels=data.labels if data.labels else {},
         tags=data.tags if data.tags else [],
+        episode=episode,
     )
 
     return task.to_v1()

@@ -49,6 +49,7 @@ class Task(WithDB):
         version: Optional[str] = None,
         labels: Dict[str, str] = {},
         tags: List[str] = [],
+        episode: Optional[Episode] = None,
     ):
         self._id = id if id is not None else str(uuid.uuid4())
         self._description = description
@@ -69,7 +70,7 @@ class Task(WithDB):
         self._prompts = prompts
         self._labels = labels
         self._tags = tags
-        self._episode = None
+        self._episode = episode
 
         self._threads = []
         if threads:
