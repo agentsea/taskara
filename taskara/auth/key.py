@@ -32,13 +32,11 @@ class MockProvider(KeyProvider):
     def create_key(self) -> str:
         return self._key
 
-    @abstractmethod
     def is_key(self, token: str) -> bool:
         if token.startswith("k."):
             return True
         return False
 
-    @abstractmethod
     def validate(self, token: str) -> V1UserProfile:
         if self._key == token:
             return V1UserProfile(
@@ -46,6 +44,7 @@ class MockProvider(KeyProvider):
                 display_name="tom",
                 picture="https://i.insider.com/4efd9b8b69bedd682c000022?width=750&format=jpeg&auto=webp",
             )
+        raise ValueError("Invalid token")
 
 
 class HubKeyProvider(KeyProvider, WithDB):

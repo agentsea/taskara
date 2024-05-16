@@ -1,7 +1,6 @@
 import uuid
 import time
 from typing import List, Optional, TypeVar, Any, Dict
-from click import Option
 import requests
 import os
 import json
@@ -9,15 +8,15 @@ import hashlib
 import logging
 import copy
 
-from threadmem import RoleThread, RoleMessage
-from mllm import Prompt
-from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef
+from threadmem import RoleThread, RoleMessage, V1RoleThreads
+from mllm import Prompt, V1Prompt
+from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef, V1Episode
 from devicebay import V1Device, V1DeviceType
 from pydantic import BaseModel
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
-from .server.models import V1Prompt, V1Task, V1TaskUpdate, V1Tasks
+from .server.models import V1Prompts, V1Task, V1TaskUpdate, V1Tasks
 from .env import HUB_API_KEY_ENV
 
 T = TypeVar("T", bound="Task")
@@ -71,10 +70,9 @@ class Task(WithDB):
         self._prompts = prompts
         self._labels = labels
         self._tags = tags
-        self._episode = episode if episode else Episode()
+        self._episode = episode
 
         self._threads = []
-        self.ensure_thread("feed")
         if threads:
             self._threads.extend(threads)
 
@@ -82,22 +80,23 @@ class Task(WithDB):
 
         if not self._remote and not self._description:
             raise ValueError("Task must have a description or a remote task")
-        if self._remote:
-            if not self._id:
-                raise ValueError("ID must be set for remote tasks")
-            logger.debug("calling remote task", self._id)
-            existing_task = self._remote_request(
-                self._remote, "GET", f"/v1/tasks/{self._id}"
-            )
-            if not existing_task:
-                raise ValueError("Remote task not found")
-            logger.debug("\nfound existing task", existing_task)
-            self.refresh()
-            logger.debug("\nrefreshed tasks")
-            logger.debug("\ntask: ", self.__dict__)
-        else:
-            self._remote = None
-            self.save()
+        self.save()
+        self.ensure_thread("feed")
+
+    @classmethod
+    def get(cls, id: str, remote: Optional[str] = None) -> "Task":
+        """Get a task by id"""
+        if remote:
+            resp = cls._remote_request(remote, "GET", f"/v1/tasks/{id}")
+            resp["remote"] = remote
+            task = cls.from_v1(V1Task.model_validate(resp))
+            return task
+
+        tasks = cls.find(id=id)
+        if not tasks:
+            raise ValueError(f"No task with id {id} found")
+        task = tasks[0]
+        return task
 
     @property
     def id(self) -> str:
@@ -265,6 +264,9 @@ class Task(WithDB):
         if self._device_type:
             device_type = self._device_type.model_dump_json()
 
+        if not hasattr(self, "_episode") or not self._episode:
+            raise ValueError("episode not set")
+
         return TaskRecord(
             id=self._id,
             owner_id=self._owner_id,
@@ -359,7 +361,7 @@ class Task(WithDB):
                 )
                 return
             except Exception as e:
-                print("failed to post message to remote: ", e)
+                logger.error("failed to post message to remote: ", e)
                 raise
 
         if not thread:
@@ -375,6 +377,68 @@ class Task(WithDB):
 
         raise ValueError(f"Thread by name or id '{thread}' not found")
 
+    @classmethod
+    def _get_prompts(
+        cls,
+        task_id: Optional[str] = None,
+        remote: Optional[str] = None,
+        ids: Optional[List[str]] = None,
+    ) -> List[Prompt]:
+        if remote:
+            try:
+                prompt_data = cls._remote_request(
+                    remote,
+                    "GET",
+                    f"/v1/tasks/{task_id}/prompts",
+                )
+                v1prompts = V1Prompts.model_validate(prompt_data)
+                out = []
+                for prompt in v1prompts.prompts:
+                    out.append(Prompt.from_v1(prompt))
+
+                return out
+
+            except Exception as e:
+                logger.error("failed to get prompts from remote: ", e)
+                raise
+
+        if not ids:
+            raise ValueError("expected ids or remote")
+        out = []
+        for id in ids:
+            prompts = Prompt.find(id=id)
+            if not prompts:
+                raise ValueError(f"Prompt by id '{id}' not found")
+            out.append(prompts[0])
+
+        return out
+
+    @classmethod
+    def _get_episode(
+        cls,
+        task_id: Optional[str] = None,
+        remote: Optional[str] = None,
+        id: Optional[str] = None,
+    ) -> Episode:
+        if remote:
+            try:
+                episode_data = cls._remote_request(
+                    remote,
+                    "GET",
+                    f"/v1/tasks/{task_id}/episode",
+                )
+                v1episode = V1Episode.model_validate(episode_data)
+                return Episode.from_v1(v1episode)
+
+            except Exception as e:
+                logger.error("failed to get prompts from remote: ", e)
+                raise
+
+        episodes = Episode.find(id=id)
+        if not episodes:
+            raise ValueError(f"Episode by id '{id}' not found")
+        return episodes[0]
+
     def record_action(
         self,
         prompt: Prompt | str,
@@ -389,6 +453,40 @@ class Task(WithDB):
     ) -> ActionEvent:
         if not owner_id:
             owner_id = self.owner_id
+
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("posting msg to remote task", self._id)
+            try:
+                if isinstance(prompt, str):
+                    prompt = Prompt.find(id=prompt)[0]
+
+                event = ActionEvent(
+                    prompt=prompt,
+                    action=action,
+                    tool=tool,
+                    result=result,
+                    namespace=namespace,
+                    metadata=metadata,
+                    owner_id=owner_id,
+                    model=model,
+                    agent_id=agent_id,
+                )
+                data = event.to_v1().model_dump()
+                self._remote_request(
+                    self._remote,
+                    "POST",
+                    f"/v1/tasks/{self.id}/actions",
+                    data,
+                )
+                return event
+
+            except Exception as e:
+                logger.error("failed to post message to remote: ", e)
+                raise
+
+        if not hasattr(self, "_episode") or not self._episode:
+            raise ValueError("episode not set")
+
         return self._episode.record(
             prompt=prompt,
             action=action,
@@ -400,6 +498,32 @@ class Task(WithDB):
             model=model,
             agent_id=agent_id,
         )
+
+    def record_action_event(
+        self,
+        event: ActionEvent,
+    ) -> None:
+        if hasattr(self, "_remote") and self._remote:
+            logger.debug("posting msg to remote task", self._id)
+            try:
+                data = event.to_v1().model_dump()
+                self._remote_request(
+                    self._remote,
+                    "POST",
+                    f"/v1/tasks/{self.id}/actions",
+                    data,
+                )
+                return
+
+            except Exception as e:
+                logger.error("failed to post message to remote: ", e)
+                raise
+
+        if not hasattr(self, "_episode") or not self._episode:
+            raise ValueError("episode not set")
+
+        self._episode.record_event(event)
+        return
 
     def copy(self) -> "Task":
         """
@@ -436,10 +560,10 @@ class Task(WithDB):
         owner_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         model: Optional[str] = None,
-    ) -> None:
+    ) -> str:
         if hasattr(self, "_remote") and self._remote:
             logger.debug("creting remote thread")
-            self._remote_request(
+            resp = self._remote_request(
                 self._remote,
                 "POST",
                 f"/v1/tasks/{self._id}/prompts",
@@ -456,7 +580,7 @@ class Task(WithDB):
                 ).model_dump(),
             )
             logger.debug("stored prompt")
-            return
+            return resp["id"]
 
         prompt = Prompt(
             thread=thread,
@@ -470,6 +594,7 @@ class Task(WithDB):
         )
         self._prompts.append(prompt)
         self.save()
+        return prompt.id
 
     def add_prompt(
         self,
@@ -551,9 +676,20 @@ class Task(WithDB):
         metadata: Optional[dict] = None,
         id: Optional[str] = None,
     ) -> None:
-        for thread in self.threads:
-            if thread.name == name:
-                return None
+        if hasattr(self, "_remote") and self._remote:
+            threads_dict = self._remote_request(
+                self._remote,
+                "GET",
+                f"/v1/tasks/{self._id}/threads",
+            )
+            v1threads = V1RoleThreads.model_validate(threads_dict)
+            for thread in v1threads.threads:
+                if thread.name == name:
+                    return None
+        else:
+            for thread in self.threads:
+                if thread.name == name:
+                    return None
 
         self.create_thread(name, public, metadata, id)
 
@@ -585,7 +721,6 @@ class Task(WithDB):
     def save(self) -> None:
         logger.debug("saving task", self._id)
         # Generate the new version hash
-        self._episode.save()
         new_version = self.generate_version_hash()
 
         if hasattr(self, "_remote") and self._remote:
@@ -601,6 +736,7 @@ class Task(WithDB):
                     # print("WARNING: current task version is different from remote, you could be overriding changes")
             except Exception:
                 existing_task = None
+
             if existing_task:
                 logger.debug("updating existing task", existing_task)
                 if self._version != new_version:
@@ -633,6 +769,10 @@ class Task(WithDB):
                 if self._version != new_version:
                     self._version = new_version
                     logger.debug(f"Version updated to {self._version}")
+
+            if not hasattr(self, "_episode") or not self._episode:
+                self._episode = Episode()
+            self._episode.save()
 
             for db in self.get_db():
                 db.merge(self.to_record())
@@ -696,6 +836,13 @@ class Task(WithDB):
         if hasattr(self, "_remote"):
             remote = self._remote
 
+        if not hasattr(self, "_episode"):
+            self._episode = None
+
+        episode_id = None
+        if self._episode:
+            episode_id = self._episode.id
+
         return V1Task(
             id=self._id,
             description=self._description if self._description else "",
@@ -703,7 +850,7 @@ class Task(WithDB):
             device=self._device,
             device_type=self.device_type,
             threads=[t.to_v1() for t in self._threads],
-            prompts=[p.to_v1() for p in self._prompts],
+            prompts=[p.id for p in self._prompts],
             status=self._status,
             created=self._created,
             started=self._started,
@@ -718,7 +865,7 @@ class Task(WithDB):
             owner_id=self._owner_id,
             tags=self._tags,
             labels=self._labels,
-            episode_id=self._episode.id,
+            episode_id=episode_id,
         )
 
     def to_update_v1(self) -> V1TaskUpdate:
@@ -764,10 +911,9 @@ class Task(WithDB):
         obj._tags = v1.tags
         obj._labels = v1.labels
 
-        episodes = Episode.find(id=v1.episode_id)
-        if not episodes:
-            raise ValueError(f"Episode {v1.episode_id} not found")
-        obj._episode = episodes[0]
+        obj._episode = cls._get_episode(
+            task_id=v1.id, remote=v1.remote, id=v1.episode_id
+        )
 
         if v1.threads:
             obj._threads = [RoleThread.from_v1(s) for s in v1.threads]
@@ -775,7 +921,9 @@ class Task(WithDB):
             obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
 
         if v1.prompts:
-            obj._prompts = [Prompt.from_v1(p) for p in v1.prompts]
+            obj._prompts = cls._get_prompts(
+                task_id=v1.id, remote=v1.remote, ids=v1.prompts
+            )
         else:
             obj._prompts = []
 
@@ -807,17 +955,40 @@ class Task(WithDB):
                     self._output = v1.output
                     self._version = v1.version
                     self._parameters = v1.parameters
+                    self._episode = self._get_episode(
+                        task_id=v1.id, remote=self._remote, id=v1.episode_id
+                    )
                     if v1.threads:
                         self._threads = [RoleThread.from_v1(wt) for wt in v1.threads]
                     if v1.prompts:
-                        self._prompts = [Prompt.from_v1(p) for p in v1.prompts]
+                        self._prompts = self._get_prompts(
+                            task_id=v1.id, remote=self._remote, ids=v1.prompts
+                        )
                     else:
                         self._prompts = []
                     logger.debug("\nrefreshed remote task", self._id)
             except requests.RequestException as e:
                 raise e
         else:
-            raise ValueError("Refresh is only supported for remote tasks")
+            tasks = self.find(id=self._id)
+            task = tasks[0]
+            self._description = task._description
+            self._max_steps = task._max_steps
+            self._device = task._device
+            self._device_type = task._device_type
+            self._status = task._status
+            self._created = task._created
+            self._started = task._started
+            self._completed = task._completed
+            self._assigned_to = task._assigned_to
+            self._assigned_type = task._assigned_type
+            self._error = task._error
+            self._output = task._output
+            self._version = task._version
+            self._parameters = task._parameters
+            self._threads = task._threads
+            self._prompts = task._prompts
+            logger.debug("\nrefreshed local task", self._id)
 
     @classmethod
     def _remote_request(
@@ -829,13 +1000,15 @@ class Task(WithDB):
         auth_token: Optional[str] = None,
     ) -> Any:
         url = f"{addr}{endpoint}"
+        logger.debug(f"calling remote task {method} {url}")
         headers = {}
         if not auth_token:
             auth_token = os.getenv(HUB_API_KEY_ENV)
-            if not auth_token:
-                raise Exception(f"Hub API key not found, set ${HUB_API_KEY_ENV}")
-        logger.debug(f"auth_token: {auth_token}")
-        headers["Authorization"] = f"Bearer {auth_token}"
+            logger.debug(f"using hub auth token found in env var {HUB_API_KEY_ENV}")
+
+        if auth_token:
+            logger.debug(f"auth_token: {auth_token}")
+            headers["Authorization"] = f"Bearer {auth_token}"
         try:
             if method.upper() == "GET":
                 logger.debug("\ncalling remote task GET with url: ", url)
@@ -859,12 +1032,12 @@ class Task(WithDB):
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
-                print("HTTP Error:", e)
-                print("Status Code:", response.status_code)
+                logger.error("HTTP Error:", e)
+                logger.error("Status Code:", response.status_code)
                 try:
-                    print("Response Body:", response.json())
+                    logger.error("Response Body:", response.json())
                 except ValueError:
-                    print("Raw Response:", response.text)
+                    logger.error("Raw Response:", response.text)
                 raise
             logger.debug("\nresponse: ", response.__dict__)
             logger.debug("\response.status_code: ", response.status_code)
@@ -874,7 +1047,7 @@ class Task(WithDB):
                 logger.debug("\nresponse_json: ", response_json)
                 return response_json
             except ValueError:
-                print("Raw Response:", response.text)
+                logger.debug("Raw Response:", response.text)
                 return None
 
         except requests.RequestException as e:

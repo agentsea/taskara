@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
 import logging
 import os
-import time
+from venv import logger
 import requests
+from typing import Optional
 
 from threadmem.server.models import V1UserProfile
-from threadmem.db.conn import WithDB
 from .key import KeyProvider, default_key_provider, MockProvider
+
+
+logger = logging.getLogger(__name__)
 
 
 class AuthProvider(ABC):
@@ -24,7 +27,9 @@ class HubAuthProvider(AuthProvider):
 
     _key_provider: KeyProvider
 
-    def __init__(self, key_provider: KeyProvider = default_key_provider()) -> None:
+    def __init__(self, key_provider: Optional[KeyProvider] = None) -> None:
+        if not key_provider:
+            key_provider = default_key_provider()
         self.hub_url = os.environ.get("AGENTSEA_HUB_URL")
         if not self.hub_url:
             raise ValueError(
@@ -40,7 +45,7 @@ class HubAuthProvider(AuthProvider):
         try:
             if self._key_provider.is_key(token):
                 user = self._key_provider.validate(token)
-                print("found user: ", user)
+                logger.debug(f"found user: {user}")
 
                 return user
 
@@ -52,7 +57,7 @@ class HubAuthProvider(AuthProvider):
                     }
                 )
                 auth_url = f"{self.hub_url}/v1/users/me"
-                print("authorizing token with: ", auth_url)
+                logger.debug(f"authorizing token with: {auth_url}")
                 response = requests.get(auth_url, headers=headers)
                 response.raise_for_status()
 
@@ -60,6 +65,34 @@ class HubAuthProvider(AuthProvider):
                 user_schema = V1UserProfile(**user_data)
                 user_schema.token = token
                 return user_schema
+
+        except Exception as e:
+            logging.error(f"Problem fetching user auth {e}")
+            raise Exception(
+                "ID token was unauthorized, please log in",
+            )
+
+
+class MockAuthProvider(AuthProvider):
+    """Mock user auth"""
+
+    _key_provider: KeyProvider = MockProvider()
+
+    def key_provider(self) -> KeyProvider:
+        return self._key_provider
+
+    def get_user_auth(self, token: str) -> V1UserProfile:
+        try:
+            if self._key_provider.is_key(token):
+                user = self._key_provider.validate(token)
+                return user
+
+            else:
+                return V1UserProfile(
+                    email="tom@myspace.com",
+                    display_name="tom",
+                    picture="https://i.insider.com/4efd9b8b69bedd682c000022?width=750&format=jpeg&auto=webp",
+                )
 
         except Exception as e:
             logging.error(f"Problem fetching user auth {e}")
