@@ -8,15 +8,15 @@ import hashlib
 import logging
 import copy
 
-from threadmem import RoleThread, RoleMessage
+from threadmem import RoleThread, RoleMessage, V1RoleThreads
 from mllm import Prompt, V1Prompt
-from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef
+from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef, V1Episode
 from devicebay import V1Device, V1DeviceType
 from pydantic import BaseModel
 
 from .db.models import TaskRecord
 from .db.conn import WithDB
-from .server.models import V1Task, V1TaskUpdate, V1Tasks
+from .server.models import V1Prompts, V1Task, V1TaskUpdate, V1Tasks
 from .env import HUB_API_KEY_ENV
 
 T = TypeVar("T", bound="Task")
@@ -70,6 +70,11 @@ class Task(WithDB):
         self._prompts = prompts
         self._labels = labels
         self._tags = tags
+
+        if not episode:
+            episode = Episode()
+            episode.save()
+
         self._episode = episode if episode else Episode()
 
         self._threads = []
@@ -82,6 +87,21 @@ class Task(WithDB):
             raise ValueError("Task must have a description or a remote task")
         self.save()
         self.ensure_thread("feed")
+
+    @classmethod
+    def get(cls, id: str, remote: Optional[str] = None) -> "Task":
+        """Get a task by id"""
+        if remote:
+            resp = cls._remote_request(remote, "GET", f"/v1/tasks/{id}")
+            resp["remote"] = remote
+            task = cls.from_v1(V1Task.model_validate(resp))
+            return task
+
+        tasks = cls.find(id=id)
+        if not tasks:
+            raise ValueError(f"No task with id {id} found")
+        task = tasks[0]
+        return task
 
     @property
     def id(self) -> str:
@@ -359,6 +379,68 @@ class Task(WithDB):
 
         raise ValueError(f"Thread by name or id '{thread}' not found")
 
+    @classmethod
+    def _get_prompts(
+        cls,
+        task_id: Optional[str] = None,
+        remote: Optional[str] = None,
+        ids: Optional[List[str]] = None,
+    ) -> List[Prompt]:
+        if remote:
+            try:
+                prompt_data = cls._remote_request(
+                    remote,
+                    "GET",
+                    f"/v1/tasks/{task_id}/prompts",
+                )
+                v1prompts = V1Prompts.model_validate(prompt_data)
+                out = []
+                for prompt in v1prompts.prompts:
+                    out.append(Prompt.from_v1(prompt))
+
+                return out
+
+            except Exception as e:
+                print("failed to get prompts from remote: ", e)
+                raise
+
+        if not ids:
+            raise ValueError("expected ids or remote")
+        out = []
+        for id in ids:
+            prompts = Prompt.find(id=id)
+            if not prompts:
+                raise ValueError(f"Prompt by id '{id}' not found")
+            out.append(prompts[0])
+
+        return out
+
+    @classmethod
+    def _get_episode(
+        cls,
+        task_id: Optional[str] = None,
+        remote: Optional[str] = None,
+        id: Optional[str] = None,
+    ) -> Episode:
+        if remote:
+            try:
+                episode_data = cls._remote_request(
+                    remote,
+                    "GET",
+                    f"/v1/tasks/{task_id}/episode",
+                )
+                v1episode = V1Episode.model_validate(episode_data)
+                return Episode.from_v1(v1episode)
+
+            except Exception as e:
+                print("failed to get prompts from remote: ", e)
+                raise
+
+        episodes = Episode.find(id=id)
+        if not episodes:
+            raise ValueError(f"Episode by id '{id}' not found")
+        return episodes[0]
+
     def record_action(
         self,
         prompt: Prompt | str,
@@ -588,9 +670,20 @@ class Task(WithDB):
         metadata: Optional[dict] = None,
         id: Optional[str] = None,
     ) -> None:
-        for thread in self.threads:
-            if thread.name == name:
-                return None
+        if hasattr(self, "_remote") and self._remote:
+            threads_dict = self._remote_request(
+                self._remote,
+                "GET",
+                f"/v1/tasks/{self._id}/threads",
+            )
+            v1threads = V1RoleThreads.model_validate(threads_dict)
+            for thread in v1threads.threads:
+                if thread.name == name:
+                    return None
+        else:
+            for thread in self.threads:
+                if thread.name == name:
+                    return None
 
         self.create_thread(name, public, metadata, id)
 
@@ -801,10 +894,9 @@ class Task(WithDB):
         obj._tags = v1.tags
         obj._labels = v1.labels
 
-        episodes = Episode.find(id=v1.episode_id)
-        if not episodes:
-            raise ValueError(f"Episode {v1.episode_id} not found")
-        obj._episode = episodes[0]
+        obj._episode = cls._get_episode(
+            task_id=v1.id, remote=v1.remote, id=v1.episode_id
+        )
 
         if v1.threads:
             obj._threads = [RoleThread.from_v1(s) for s in v1.threads]
@@ -812,7 +904,9 @@ class Task(WithDB):
             obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
 
         if v1.prompts:
-            obj._prompts = [Prompt.find(id=p)[0] for p in v1.prompts]
+            obj._prompts = cls._get_prompts(
+                task_id=v1.id, remote=v1.remote, ids=v1.prompts
+            )
         else:
             obj._prompts = []
 
@@ -884,6 +978,7 @@ class Task(WithDB):
         auth_token: Optional[str] = None,
     ) -> Any:
         url = f"{addr}{endpoint}"
+        print("calling remote task", method, url)
         headers = {}
         if not auth_token:
             auth_token = os.getenv(HUB_API_KEY_ENV)

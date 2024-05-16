@@ -1,10 +1,9 @@
-from typing import Annotated
-import time
+from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException
-from threadmem import RoleMessage, RoleThread
+from threadmem import RoleMessage, RoleThread, V1RoleThreads, V1RoleThread
 from mllm import Prompt, V1Prompt
-from skillpacks import V1ActionEvent, ActionEvent
+from skillpacks import V1ActionEvent, ActionEvent, V1Episode
 
 from taskara import Task
 from taskara.server.models import (
@@ -15,6 +14,7 @@ from taskara.server.models import (
     V1PostMessage,
     V1AddThread,
     V1RemoveThread,
+    V1Prompts,
 )
 from taskara.auth.transport import get_user_dependency
 
@@ -184,6 +184,23 @@ async def record_action(
     return
 
 
+@router.get("/v1/tasks/{task_id}/threads", response_model=V1RoleThreads)
+async def get_threads(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+):
+    # print("\n posting message to task: ", data)
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    out: List[V1RoleThread] = []
+    for thread in task.threads:
+        out.append(thread.to_v1())
+    return V1RoleThreads(threads=out)
+
+
 @router.post("/v1/tasks/{task_id}/threads")
 async def create_thread(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
@@ -213,3 +230,34 @@ async def remove_thread(
     task = task[0]
     task.remove_thread(data.id)
     return
+
+
+@router.get("/v1/tasks/{task_id}/prompts", response_model=V1Prompts)
+async def get_prompts(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+):
+    # print("\n posting message to task: ", data)
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    out: List[V1Prompt] = []
+    for prompt in task._prompts:
+        out.append(prompt.to_v1())
+    return V1Prompts(prompts=out)
+
+
+@router.get("/v1/tasks/{task_id}/episode", response_model=V1Episode)
+async def get_episode(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+):
+    # print("\n posting message to task: ", data)
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    return task._episode.to_v1()

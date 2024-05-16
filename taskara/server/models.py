@@ -6,6 +6,7 @@ from threadmem.server.models import V1RoleThread
 from pydantic import BaseModel, Field
 from devicebay.models import V1Device
 from devicebay import V1Device, V1DeviceType
+from mllm import V1Prompt
 
 
 class V1TaskUpdate(BaseModel):
@@ -108,3 +109,7 @@ class V1ResourceRequests(BaseModel):
     cpu: str = "1"
     memory: str = "500m"
     gpu: Optional[str] = None
+
+
+class V1Prompts(BaseModel):
+    prompts: List[V1Prompt]

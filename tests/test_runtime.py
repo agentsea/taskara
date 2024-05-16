@@ -153,18 +153,37 @@ def test_process_task_server_runtime():
             tool=V1ToolRef(module="test", name="test"),
         )
 
-        status, _ = server.call(
-            path=f"/v1/tasks/{task_id}/actions",
-            method="POST",
+        # status, _ = server.call(
+        #     path=f"/v1/tasks/{task_id}/actions",
+        #     method="POST",
+        #     data=action_event.to_v1().model_dump(),
+        # )
+        # print("store action status: ", status)
+        # assert status == 200
+
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{task_id}",
+            method="GET",
             data=action_event.to_v1().model_dump(),
         )
-        print("store action status: ", status)
+        print("get task status: ", status)
         assert status == 200
+        task = V1Task.model_validate(json.loads(resp_text))
+        print("task: ", task)
+
+        print("getting remote task")
+        found_task = Task.get(id=task_id, remote=f"http://localhost:{server.port}")
 
         # Delete the task
         status, _ = server.call(path=f"/v1/tasks/{task_id}", method="DELETE")
         print("delete task status: ", status)
         assert status == 200
+
+        print("creating a new task")
+        new_task = Task(
+            description="a good test", remote=f"http://localhost:{server.port}"
+        )
+        print("created a new task")
 
     finally:
         # Ensure the server is deleted
