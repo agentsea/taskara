@@ -28,11 +28,18 @@ async def create_task(
 ):
     print("creating task with model: ", data.model_dump())
     task = Task(
+        id=data.id,
+        max_steps=data.max_steps,
+        device=data.device,
+        device_type=data.device_type,
         owner_id=current_user.email,
         description=data.description,
-        status="created",
+        status=data.status or "created",
         parameters=data.parameters if data.parameters else {},
         assigned_to=data.assigned_to,
+        assigned_type=data.assigned_type,
+        labels=data.labels if data.labels else {},
+        tags=data.tags if data.tags else [],
     )
 
     return task.to_v1()
