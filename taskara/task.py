@@ -49,7 +49,6 @@ class Task(WithDB):
         version: Optional[str] = None,
         labels: Dict[str, str] = {},
         tags: List[str] = [],
-        episode: Optional[Episode] = None,
     ):
         self._id = id if id is not None else str(uuid.uuid4())
         self._description = description
@@ -70,12 +69,7 @@ class Task(WithDB):
         self._prompts = prompts
         self._labels = labels
         self._tags = tags
-
-        if not episode:
-            episode = Episode()
-            episode.save()
-
-        self._episode = episode if episode else Episode()
+        self._episode = None
 
         self._threads = []
         if threads:
@@ -268,6 +262,9 @@ class Task(WithDB):
         device_type = None
         if self._device_type:
             device_type = self._device_type.model_dump_json()
+
+        if not hasattr(self, "_episode") or not self._episode:
+            raise ValueError("episode not set")
 
         return TaskRecord(
             id=self._id,
@@ -485,6 +482,10 @@ class Task(WithDB):
             except Exception as e:
                 print("failed to post message to remote: ", e)
                 raise
+
+        if not hasattr(self, "_episode") or not self._episode:
+            raise ValueError("episode not set")
+
         return self._episode.record(
             prompt=prompt,
             action=action,
@@ -516,6 +517,10 @@ class Task(WithDB):
             except Exception as e:
                 print("failed to post message to remote: ", e)
                 raise
+
+        if not hasattr(self, "_episode") or not self._episode:
+            raise ValueError("episode not set")
+
         self._episode.record_event(event)
         return
 
@@ -715,7 +720,6 @@ class Task(WithDB):
     def save(self) -> None:
         logger.debug("saving task", self._id)
         # Generate the new version hash
-        self._episode.save()
         new_version = self.generate_version_hash()
 
         if hasattr(self, "_remote") and self._remote:
@@ -731,6 +735,7 @@ class Task(WithDB):
                     # print("WARNING: current task version is different from remote, you could be overriding changes")
             except Exception:
                 existing_task = None
+
             if existing_task:
                 logger.debug("updating existing task", existing_task)
                 if self._version != new_version:
@@ -763,6 +768,10 @@ class Task(WithDB):
                 if self._version != new_version:
                     self._version = new_version
                     logger.debug(f"Version updated to {self._version}")
+
+            if not hasattr(self, "_episode") or not self._episode:
+                self._episode = Episode()
+            self._episode.save()
 
             for db in self.get_db():
                 db.merge(self.to_record())
@@ -826,6 +835,13 @@ class Task(WithDB):
         if hasattr(self, "_remote"):
             remote = self._remote
 
+        if not hasattr(self, "_episode"):
+            self._episode = None
+
+        episode_id = None
+        if self._episode:
+            episode_id = self._episode.id
+
         return V1Task(
             id=self._id,
             description=self._description if self._description else "",
@@ -848,7 +864,7 @@ class Task(WithDB):
             owner_id=self._owner_id,
             tags=self._tags,
             labels=self._labels,
-            episode_id=self._episode.id,
+            episode_id=episode_id,
         )
 
     def to_update_v1(self) -> V1TaskUpdate:
@@ -938,10 +954,15 @@ class Task(WithDB):
                     self._output = v1.output
                     self._version = v1.version
                     self._parameters = v1.parameters
+                    self._episode = self._get_episode(
+                        task_id=v1.id, remote=self._remote, id=v1.episode_id
+                    )
                     if v1.threads:
                         self._threads = [RoleThread.from_v1(wt) for wt in v1.threads]
                     if v1.prompts:
-                        self._prompts = [Prompt.find(id=p)[0] for p in v1.prompts]
+                        self._prompts = self._get_prompts(
+                            task_id=v1.id, remote=self._remote, ids=v1.prompts
+                        )
                     else:
                         self._prompts = []
                     logger.debug("\nrefreshed remote task", self._id)

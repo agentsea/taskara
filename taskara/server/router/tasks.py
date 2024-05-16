@@ -3,7 +3,7 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException
 from threadmem import RoleMessage, RoleThread, V1RoleThreads, V1RoleThread
 from mllm import Prompt, V1Prompt
-from skillpacks import V1ActionEvent, ActionEvent, V1Episode
+from skillpacks import V1ActionEvent, ActionEvent, V1Episode, Episode
 
 from taskara import Task
 from taskara.server.models import (
@@ -259,5 +259,8 @@ async def get_episode(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
+
+    if not task._episode:
+        task._episode = Episode()
 
     return task._episode.to_v1()
