@@ -361,7 +361,7 @@ class Task(WithDB):
                 )
                 return
             except Exception as e:
-                print("failed to post message to remote: ", e)
+                logger.error("failed to post message to remote: ", e)
                 raise
 
         if not thread:
@@ -399,7 +399,7 @@ class Task(WithDB):
                 return out
 
             except Exception as e:
-                print("failed to get prompts from remote: ", e)
+                logger.error("failed to get prompts from remote: ", e)
                 raise
 
         if not ids:
@@ -431,7 +431,7 @@ class Task(WithDB):
                 return Episode.from_v1(v1episode)
 
             except Exception as e:
-                print("failed to get prompts from remote: ", e)
+                logger.error("failed to get prompts from remote: ", e)
                 raise
 
         episodes = Episode.find(id=id)
@@ -481,7 +481,7 @@ class Task(WithDB):
                 return event
 
             except Exception as e:
-                print("failed to post message to remote: ", e)
+                logger.error("failed to post message to remote: ", e)
                 raise
 
         if not hasattr(self, "_episode") or not self._episode:
@@ -516,7 +516,7 @@ class Task(WithDB):
                 return
 
             except Exception as e:
-                print("failed to post message to remote: ", e)
+                logger.error("failed to post message to remote: ", e)
                 raise
 
         if not hasattr(self, "_episode") or not self._episode:
@@ -1000,7 +1000,7 @@ class Task(WithDB):
         auth_token: Optional[str] = None,
     ) -> Any:
         url = f"{addr}{endpoint}"
-        print("calling remote task", method, url)
+        logger.debug(f"calling remote task {method} {url}")
         headers = {}
         if not auth_token:
             auth_token = os.getenv(HUB_API_KEY_ENV)
@@ -1032,12 +1032,12 @@ class Task(WithDB):
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
-                print("HTTP Error:", e)
-                print("Status Code:", response.status_code)
+                logger.error("HTTP Error:", e)
+                logger.error("Status Code:", response.status_code)
                 try:
-                    print("Response Body:", response.json())
+                    logger.error("Response Body:", response.json())
                 except ValueError:
-                    print("Raw Response:", response.text)
+                    logger.error("Raw Response:", response.text)
                 raise
             logger.debug("\nresponse: ", response.__dict__)
             logger.debug("\response.status_code: ", response.status_code)
@@ -1047,7 +1047,7 @@ class Task(WithDB):
                 logger.debug("\nresponse_json: ", response_json)
                 return response_json
             except ValueError:
-                print("Raw Response:", response.text)
+                logger.debug("Raw Response:", response.text)
                 return None
 
         except requests.RequestException as e:

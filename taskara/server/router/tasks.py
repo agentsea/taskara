@@ -1,4 +1,5 @@
 from typing import Annotated, List
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from threadmem import RoleMessage, RoleThread, V1RoleThreads, V1RoleThread
@@ -19,6 +20,7 @@ from taskara.server.models import (
 from taskara.auth.transport import get_user_dependency
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/v1/tasks", response_model=V1Task)
@@ -26,7 +28,7 @@ async def create_task(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     data: V1Task,
 ):
-    print("creating task with model: ", data.model_dump())
+    logger.debug(f"creating task with model: {data.model_dump()}")
 
     episode = None
     if data.episode_id:
@@ -69,13 +71,13 @@ async def get_tasks(
 async def get_task(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
 ):
-    print("\nfinding task by id: ", task_id)
+    logger.debug(f"finding task by id: {task_id}")
     tasks = Task.find(id=task_id, owner_id=current_user.email)
-    print("\nfound tasks: ", tasks)
+    logger.debug(f"found tasks: {tasks}")
     if not tasks:
-        print("\ndid not find task by id: ", task_id)
+        logger.debug(f"did not find task by id: {task_id}")
         raise HTTPException(status_code=404, detail="Task not found")
-    print("\nfound task by id: ", tasks[0])
+    logger.debug(f"found task by id: {tasks[0]}")
     return tasks[0].to_v1()
 
 
@@ -93,13 +95,13 @@ async def update_task(
     task_id: str,
     data: V1TaskUpdate,
 ):
-    print("\n updating task with model: ", data)
+    logger.debug(f"updating task with model: {data}")
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
 
-    print("\nfound task: ", task.__dict__)
+    logger.debug(f"found task: {task.__dict__}")
     if data.description:
         task.description = data.description
     if data.status:
@@ -112,7 +114,7 @@ async def update_task(
         task.output = data.output
     if data.completed:
         task.completed = data.completed
-    print("\nsaving task: ", task.__dict__)
+    logger.debug(f"saving task: {task.__dict__}")
     task.save()
     return task.to_v1()
 
@@ -123,14 +125,14 @@ async def post_task_msg(
     task_id: str,
     data: V1PostMessage,
 ):
-    print("\nposting message to task: ", data.model_dump())
+    logger.debug(f"posting message to task: {data.model_dump()}")
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
 
     task.post_message(data.role, data.msg, data.images, thread=data.thread)
-    print("\nposted message to task: ", task.__dict__)
+    logger.debug(f"posted message to task: {task.__dict__}")
     return
 
 
@@ -140,7 +142,7 @@ async def store_prompt(
     task_id: str,
     data: V1Prompt,
 ):
-    print("\nposting prompt to task: ", data.model_dump())
+    logger.debug(f"posting prompt to task: {data.model_dump()}")
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -154,7 +156,7 @@ async def store_prompt(
         owner_id=current_user.email,
     )
 
-    print("\nstored prompt in task: ", task.__dict__)
+    logger.debug(f"stored prompt in task: {task.__dict__}")
     return {"id": id}
 
 
@@ -177,7 +179,7 @@ async def approve_prompt(
     prompt.approved = True
     prompt.save()
 
-    print("\napproved prompt in task: ", task.__dict__)
+    logger.debug(f"approved prompt in task: {task.__dict__}")
     return
 
 
@@ -201,7 +203,6 @@ async def get_threads(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    # print("\n posting message to task: ", data)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -219,7 +220,6 @@ async def create_thread(
     task_id: str,
     data: V1AddThread,
 ):
-    # print("\n posting message to task: ", data)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -235,7 +235,6 @@ async def remove_thread(
     task_id: str,
     data: V1RemoveThread,
 ):
-    # print("\n posting message to task: ", data)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -249,7 +248,6 @@ async def get_prompts(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    # print("\n posting message to task: ", data)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -266,7 +264,6 @@ async def get_episode(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    # print("\n posting message to task: ", data)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
