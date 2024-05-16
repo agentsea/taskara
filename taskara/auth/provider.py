@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
 import logging
 import os
-import time
+from venv import logger
 import requests
 from typing import Optional
 
 from threadmem.server.models import V1UserProfile
 from .key import KeyProvider, default_key_provider, MockProvider
+
+
+logger = logging.getLogger(__name__)
 
 
 class AuthProvider(ABC):
@@ -42,7 +45,7 @@ class HubAuthProvider(AuthProvider):
         try:
             if self._key_provider.is_key(token):
                 user = self._key_provider.validate(token)
-                print("found user: ", user)
+                logger.debug(f"found user: {user}")
 
                 return user
 
@@ -54,7 +57,7 @@ class HubAuthProvider(AuthProvider):
                     }
                 )
                 auth_url = f"{self.hub_url}/v1/users/me"
-                print("authorizing token with: ", auth_url)
+                logger.debug(f"authorizing token with: {auth_url}")
                 response = requests.get(auth_url, headers=headers)
                 response.raise_for_status()
 
@@ -82,8 +85,6 @@ class MockAuthProvider(AuthProvider):
         try:
             if self._key_provider.is_key(token):
                 user = self._key_provider.validate(token)
-                print("found user: ", user)
-
                 return user
 
             else:

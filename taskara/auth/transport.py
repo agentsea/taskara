@@ -8,6 +8,8 @@ from fastapi.security import OAuth2PasswordBearer
 from threadmem.server.models import V1UserProfile
 from .provider import default_auth_provider
 
+logger = logging.getLogger(__name__)
+
 if os.getenv("TASK_SERVER_NO_AUTH", "false").lower() == "true":
     user_auth = None
 else:
@@ -22,7 +24,7 @@ async def get_current_user(
     if not user_auth:
         raise SystemError("user auth is not configured")
     try:
-        print("checking user token: ", token)
+        logger.debug(f"checking user token: {token}")
         user = user_auth.get_user_auth(token)
     except Exception as e:
         logging.error(e)
