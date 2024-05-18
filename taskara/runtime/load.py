@@ -2,11 +2,11 @@ from typing import Optional, List, Type
 
 from pydantic import BaseModel
 
-from .docker import DockerTaskServerRuntime, DockerConnectConfig
-from .kube import KubeTaskServerRuntime, KubeConnectConfig
-from .process import ProcessTaskServerRuntime, ProcessConnectConfig
-from .base import TaskServer, TaskServerRuntime
-from taskara.server.models import V1TaskRuntimeConnect
+from .docker import DockerTrackerRuntime, DockerConnectConfig
+from .kube import KubeTrackerRuntime, KubeConnectConfig
+from .process import ProcessTrackerRuntime, ProcessConnectConfig
+from .base import Tracker, TrackerRuntime
+from taskara.server.models import V1TrackerRuntimeConnect
 
 
 class AgentRuntimeConfig(BaseModel):
@@ -17,28 +17,28 @@ class AgentRuntimeConfig(BaseModel):
     preference: List[str] = ["kube", "docker", "process"]
 
 
-def runtime_from_name(name: str) -> Type[TaskServerRuntime]:
+def runtime_from_name(name: str) -> Type[TrackerRuntime]:
     for runt in RUNTIMES:
         if runt.name() == name:
             return runt
     raise ValueError(f"Unknown runtime '{name}'")
 
 
-def load_task_server_runtime(cfg: AgentRuntimeConfig) -> TaskServerRuntime:
+def load_tracker_runtime(cfg: AgentRuntimeConfig) -> TrackerRuntime:
     for pref in cfg.preference:
-        if pref == KubeTaskServerRuntime.name() and cfg.kube_config:
-            return KubeTaskServerRuntime.connect(cfg.kube_config)
-        elif pref == DockerTaskServerRuntime.name() and cfg.docker_config:
-            return DockerTaskServerRuntime.connect(cfg.docker_config)
-        elif pref == ProcessTaskServerRuntime.name() and cfg.process_config:
-            return ProcessTaskServerRuntime.connect(cfg.process_config)
+        if pref == KubeTrackerRuntime.name() and cfg.kube_config:
+            return KubeTrackerRuntime.connect(cfg.kube_config)
+        elif pref == DockerTrackerRuntime.name() and cfg.docker_config:
+            return DockerTrackerRuntime.connect(cfg.docker_config)
+        elif pref == ProcessTrackerRuntime.name() and cfg.process_config:
+            return ProcessTrackerRuntime.connect(cfg.process_config)
     raise ValueError(f"Unknown provider: {cfg.provider}")
 
 
-RUNTIMES: List[Type[TaskServerRuntime]] = [DockerTaskServerRuntime, KubeTaskServerRuntime, ProcessTaskServerRuntime]  # type: ignore
+RUNTIMES: List[Type[TrackerRuntime]] = [DockerTrackerRuntime, KubeTrackerRuntime, ProcessTrackerRuntime]  # type: ignore
 
 
-def load_from_connect(connect: V1TaskRuntimeConnect) -> TaskServerRuntime:
+def load_from_connect(connect: V1TrackerRuntimeConnect) -> TrackerRuntime:
     for runt in RUNTIMES:
         if connect.name == runt.name():
             print("connect config: ", connect.connect_config)

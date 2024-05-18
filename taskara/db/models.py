@@ -32,8 +32,8 @@ class TaskRecord(Base):
     episode_id = Column(String, nullable=True)
 
 
-class TaskServerRecord(Base):
-    __tablename__ = "task_servers"
+class TrackerRecord(Base):
+    __tablename__ = "trackers"
 
     id = Column(String, primary_key=True)
     name = Column(String, unique=True, index=True)

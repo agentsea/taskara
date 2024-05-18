@@ -15,7 +15,7 @@ import requests
 from pydantic import BaseModel
 
 
-from .base import TaskServer, TaskServerRuntime
+from .base import Tracker, TrackerRuntime
 from taskara.server.models import (
     V1ResourceLimits,
     V1ResourceRequests,
@@ -30,8 +30,8 @@ class ProcessConnectConfig(BaseModel):
     pass
 
 
-class ProcessTaskServerRuntime(
-    TaskServerRuntime["ProcessTaskServerRuntime", ProcessConnectConfig]
+class ProcessTrackerRuntime(
+    TrackerRuntime["ProcessTrackerRuntime", ProcessConnectConfig]
 ):
 
     @classmethod
@@ -46,7 +46,7 @@ class ProcessTaskServerRuntime(
         return ProcessConnectConfig()
 
     @classmethod
-    def connect(cls, cfg: ProcessConnectConfig) -> "ProcessTaskServerRuntime":
+    def connect(cls, cfg: ProcessConnectConfig) -> "ProcessTrackerRuntime":
         return cls()
 
     def run(
@@ -58,7 +58,7 @@ class ProcessTaskServerRuntime(
         resource_requests: V1ResourceRequests = V1ResourceRequests(),
         resource_limits: V1ResourceLimits = V1ResourceLimits(),
         auth_enabled: bool = True,
-    ) -> TaskServer:
+    ) -> Tracker:
 
         port = find_open_port(9070, 10090)
         if not port:
@@ -117,15 +117,15 @@ class ProcessTaskServerRuntime(
             try:
                 response = requests.get(health_url)
                 if response.status_code == 200:
-                    logger.info("Agent is up and running.")
+                    logger.info("Task server is up and running.")
                     break
             except requests.ConnectionError:
-                logger.warning("Agent not yet available, retrying...")
+                logger.warning("Task server not yet available, retrying...")
             time.sleep(retry_delay)
         else:
             raise RuntimeError("Failed to start server, it did not pass health checks.")
 
-        return TaskServer(
+        return Tracker(
             name=name,
             runtime=self,
             status="running",
@@ -138,7 +138,7 @@ class ProcessTaskServerRuntime(
         def handle_signal(signum, frame):
             print(f"Signal {signum} received, stopping process '{server_name}'")
             self.delete(server_name)
-            instances = TaskServer.find(name=server_name)
+            instances = Tracker.find(name=server_name)
             if instances:
                 instances[0].delete()
             sys.exit(1)
@@ -175,7 +175,7 @@ class ProcessTaskServerRuntime(
         self,
         name: str,
         local_port: Optional[int] = None,
-        task_server_port: int = 9070,
+        tracker_port: int = 9070,
         background: bool = True,
         owner_id: Optional[str] = None,
     ) -> Optional[int]:
@@ -184,14 +184,14 @@ class ProcessTaskServerRuntime(
 
     def get(
         self, name: str, owner_id: Optional[str] = None, source: bool = False
-    ) -> TaskServer:
+    ) -> Tracker:
         if source:
             try:
                 # Read the metadata file
                 with open(f".data/proc/{name}.json", "r") as f:
                     metadata = json.load(f)
 
-                return TaskServer(
+                return Tracker(
                     name=metadata["name"],
                     runtime=self,
                     port=metadata["port"],
@@ -200,7 +200,7 @@ class ProcessTaskServerRuntime(
                 raise ValueError(f"No metadata found for server {name}")
 
         else:
-            instances = TaskServer.find(
+            instances = Tracker.find(
                 name=name, owner_id=owner_id, runtime_name=self.name()
             )
             if len(instances) == 0:
@@ -211,7 +211,7 @@ class ProcessTaskServerRuntime(
         self,
         owner_id: Optional[str] = None,
         source: bool = False,
-    ) -> List[TaskServer]:
+    ) -> List[Tracker]:
         instances = []
         if source:
             metadata_dir = ".data/proc"
@@ -228,7 +228,7 @@ class ProcessTaskServerRuntime(
                         # Check if process is still running
                         process_info = f"TASK_SERVER={metadata['name']} "
                         if process_info in all_processes:
-                            instance = TaskServer(
+                            instance = Tracker(
                                 name=metadata["name"],
                                 runtime=self,
                                 status="running",
@@ -245,7 +245,7 @@ class ProcessTaskServerRuntime(
                     except Exception as e:
                         logger.error(f"Error processing {filename}: {str(e)}")
         else:
-            return TaskServer.find(owner_id=owner_id, runtime_name=self.name())
+            return Tracker.find(owner_id=owner_id, runtime_name=self.name())
 
         return instances
 
