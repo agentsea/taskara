@@ -12,13 +12,13 @@ from taskara.util import find_open_port
 from pydantic import BaseModel
 
 from taskara.server.models import (
-    V1TaskRuntimeConnect,
-    V1TaskServer,
+    V1TrackerRuntimeConnect,
+    V1Tracker,
     V1ResourceLimits,
     V1ResourceRequests,
 )
 
-from .base import TaskServer, TaskServerRuntime
+from .base import Tracker, TrackerRuntime
 
 
 class DockerConnectConfig(BaseModel):
@@ -26,9 +26,7 @@ class DockerConnectConfig(BaseModel):
     image: str = "us-central1-docker.pkg.dev/agentsea-dev/taskara/api:latest"
 
 
-class DockerTaskServerRuntime(
-    TaskServerRuntime["DockerTaskServerRuntime", DockerConnectConfig]
-):
+class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectConfig]):
 
     def __init__(self, cfg: Optional[DockerConnectConfig] = None) -> None:
         if not cfg:
@@ -54,7 +52,7 @@ class DockerTaskServerRuntime(
         return self._cfg
 
     @classmethod
-    def connect(cls, cfg: DockerConnectConfig) -> "DockerTaskServerRuntime":
+    def connect(cls, cfg: DockerConnectConfig) -> "DockerTrackerRuntime":
         return cls(cfg)
 
     def call(
@@ -118,7 +116,7 @@ class DockerTaskServerRuntime(
         resource_requests: V1ResourceRequests = V1ResourceRequests(),
         resource_limits: V1ResourceLimits = V1ResourceLimits(),
         auth_enabled: bool = True,
-    ) -> TaskServer:
+    ) -> Tracker:
         _labels = {
             "provisioner": "taskara",
             "server_name": name,
@@ -150,7 +148,7 @@ class DockerTaskServerRuntime(
         if container and type(container) != bytes:
             print(f"ran container '{container.id}'")  # type: ignore
 
-        return TaskServer(
+        return Tracker(
             name=name,
             runtime=self,
             status="running",
@@ -189,7 +187,7 @@ class DockerTaskServerRuntime(
         self,
         name: str,
         local_port: Optional[int] = None,
-        task_server_port: int = 9070,
+        tracker_port: int = 9070,
         background: bool = True,
         owner_id: Optional[str] = None,
     ) -> Optional[int]:
@@ -198,7 +196,7 @@ class DockerTaskServerRuntime(
 
     def list(
         self, owner_id: Optional[str] = None, source: bool = False
-    ) -> List[TaskServer]:
+    ) -> List[Tracker]:
 
         instances = []
         if source:
@@ -219,7 +217,7 @@ class DockerTaskServerRuntime(
                     9070,
                 )
 
-                instance = TaskServer(
+                instance = Tracker(
                     name=server_name,
                     runtime=self,
                     port=port,
@@ -228,13 +226,13 @@ class DockerTaskServerRuntime(
                 )
                 instances.append(instance)
         else:
-            return TaskServer.find(owner_id=owner_id, runtime_name=self.name())
+            return Tracker.find(owner_id=owner_id, runtime_name=self.name())
 
         return instances
 
     def get(
         self, name: str, owner_id: Optional[str] = None, source: bool = False
-    ) -> TaskServer:
+    ) -> Tracker:
         if source:
             try:
                 container = self.client.containers.get(name)
@@ -250,7 +248,7 @@ class DockerTaskServerRuntime(
                     9070,
                 )
 
-                return TaskServer(
+                return Tracker(
                     name=name,
                     runtime=self,
                     status="running",
@@ -261,7 +259,7 @@ class DockerTaskServerRuntime(
                 raise ValueError(f"Container '{name}' not found")
 
         else:
-            instances = TaskServer.find(
+            instances = Tracker.find(
                 name=name, owner_id=owner_id, runtime_name=self.name()
             )
             if not instances:

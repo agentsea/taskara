@@ -7,26 +7,26 @@ import json
 from pydantic import BaseModel
 
 from taskara.db.conn import WithDB
-from taskara.db.models import TaskServerRecord
+from taskara.db.models import TrackerRecord
 from taskara.server.models import (
-    V1TaskRuntimeConnect,
-    V1TaskServer,
+    V1TrackerRuntimeConnect,
+    V1Tracker,
     V1ResourceLimits,
     V1ResourceRequests,
 )
 
-R = TypeVar("R", bound="TaskServerRuntime")
+R = TypeVar("R", bound="TrackerRuntime")
 C = TypeVar("C", bound="BaseModel")
 
 
-class TaskServer(WithDB):
+class Tracker(WithDB):
     """A task server"""
 
     def __init__(
         self,
         name: str,
         port: int,
-        runtime: "TaskServerRuntime",
+        runtime: "TrackerRuntime",
         status: str = "running",
         owner_id: Optional[str] = None,
         labels: Optional[Dict[str, str]] = None,
@@ -56,7 +56,7 @@ class TaskServer(WithDB):
         return self._name
 
     @property
-    def runtime(self) -> "TaskServerRuntime":
+    def runtime(self) -> "TrackerRuntime":
         return self._runtime
 
     @property
@@ -99,7 +99,7 @@ class TaskServer(WithDB):
 
         # After the runtime deletion, proceed to delete the record from the database.
         for db in self.get_db():
-            record = db.query(TaskServerRecord).filter_by(id=self._id).one()
+            record = db.query(TrackerRecord).filter_by(id=self._id).one()
             db.delete(record)
             db.commit()
 
@@ -122,22 +122,22 @@ class TaskServer(WithDB):
             db.commit()
 
     @classmethod
-    def find(cls, **kwargs) -> List["TaskServer"]:
+    def find(cls, **kwargs) -> List["Tracker"]:
         for db in cls.get_db():
             records = (
-                db.query(TaskServerRecord)
+                db.query(TrackerRecord)
                 .filter_by(**kwargs)
-                .order_by(TaskServerRecord.created.desc())
+                .order_by(TrackerRecord.created.desc())
                 .all()
             )
             return [cls.from_record(record) for record in records]
         raise ValueError("No session")
 
-    def to_v1(self) -> V1TaskServer:
+    def to_v1(self) -> V1Tracker:
         """Convert to V1 API model"""
-        return V1TaskServer(
+        return V1Tracker(
             name=self._name,
-            runtime=V1TaskRuntimeConnect(
+            runtime=V1TrackerRuntimeConnect(
                 name=self._runtime.name(), connect_config=self.runtime.connect_config()
             ),
             port=self._port,
@@ -148,11 +148,11 @@ class TaskServer(WithDB):
             labels=self._labels or {},
         )
 
-    def to_record(self) -> TaskServerRecord:
+    def to_record(self) -> TrackerRecord:
         """Convert to DB model"""
         runtime_cfg = self._runtime.connect_config().model_dump_json()
 
-        return TaskServerRecord(
+        return TrackerRecord(
             id=self._id,
             name=self._name,
             runtime_name=self._runtime.name(),
@@ -166,7 +166,7 @@ class TaskServer(WithDB):
         )
 
     @classmethod
-    def from_record(cls, record: TaskServerRecord) -> "TaskServer":
+    def from_record(cls, record: TrackerRecord) -> "Tracker":
         from taskara.runtime.load import runtime_from_name
 
         runtype = runtime_from_name(str(record.runtime_name))
@@ -216,7 +216,7 @@ class TaskServer(WithDB):
         )
 
 
-class TaskServerRuntime(Generic[R, C], ABC):
+class TrackerRuntime(Generic[R, C], ABC):
 
     @classmethod
     def name(cls) -> str:
@@ -264,7 +264,7 @@ class TaskServerRuntime(Generic[R, C], ABC):
         resource_requests: V1ResourceRequests = V1ResourceRequests(),
         resource_limits: V1ResourceLimits = V1ResourceLimits(),
         auth_enabled: bool = True,
-    ) -> TaskServer:
+    ) -> Tracker:
         """Run the task server
 
         Args:
@@ -277,14 +277,14 @@ class TaskServerRuntime(Generic[R, C], ABC):
             auth_enabled (bool, optional): Whether to enable auth. Defaults to True.
 
         Returns:
-            TaskServer: An task server instance
+            Tracker: An task server instance
         """
         pass
 
     @abstractmethod
     def list(
         self, owner_id: Optional[str] = None, source: bool = False
-    ) -> List[TaskServer]:
+    ) -> List[Tracker]:
         """List task server instances
 
         Args:
@@ -292,14 +292,14 @@ class TaskServerRuntime(Generic[R, C], ABC):
             source (bool, optional): Whether to list directly from the source. Defaults to False.
 
         Returns:
-            List[TaskServer]: A list of task server instances
+            List[Tracker]: A list of task server instances
         """
         pass
 
     @abstractmethod
     def get(
         self, name: str, owner_id: Optional[str] = None, source: bool = False
-    ) -> TaskServer:
+    ) -> Tracker:
         """Get an task server instance
 
         Args:
@@ -308,7 +308,7 @@ class TaskServerRuntime(Generic[R, C], ABC):
             source (bool, optional): Whether to fetch directly from the source. Defaults to False.
 
         Returns:
-            TaskServer: An task server instance
+            Tracker: An task server instance
         """
         pass
 
@@ -322,7 +322,7 @@ class TaskServerRuntime(Generic[R, C], ABC):
         self,
         name: str,
         local_port: Optional[int] = None,
-        task_server_port: int = 9070,
+        tracker_port: int = 9070,
         background: bool = True,
         owner_id: Optional[str] = None,
     ) -> Optional[int]:
@@ -331,7 +331,7 @@ class TaskServerRuntime(Generic[R, C], ABC):
         Args:
             name (str): Name of the task server
             local_port (Optional[int], optional): Local port to proxy to. Defaults to None.
-            task_server_port (int, optional): The task servers port. Defaults to 9070.
+            tracker_port (int, optional): The task servers port. Defaults to 9070.
             background (bool, optional): Whether to run the proxy in the background. Defaults to True.
             owner_id (Optional[str], optional): An optional owner ID. Defaults to None.
 

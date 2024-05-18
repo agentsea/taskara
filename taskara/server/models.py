@@ -77,14 +77,14 @@ class V1PostMessage(BaseModel):
     thread: Optional[str] = None
 
 
-class V1TaskRuntimeConnect(BaseModel):
+class V1TrackerRuntimeConnect(BaseModel):
     name: str
     connect_config: BaseModel
 
 
-class V1TaskServer(BaseModel):
+class V1Tracker(BaseModel):
     name: str
-    runtime: V1TaskRuntimeConnect
+    runtime: V1TrackerRuntimeConnect
     version: Optional[str] = None
     port: int = 9090
     labels: Dict[str, str] = {}

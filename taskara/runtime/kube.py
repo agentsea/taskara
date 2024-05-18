@@ -26,8 +26,8 @@ from pydantic import BaseModel
 
 from taskara.server.models import V1Task
 from taskara.util import find_open_port
-from .base import TaskServerRuntime, TaskServer
-from taskara.server.models import V1TaskServer, V1ResourceLimits, V1ResourceRequests
+from .base import TrackerRuntime, Tracker
+from taskara.server.models import V1Tracker, V1ResourceLimits, V1ResourceRequests
 
 
 class GKEOpts(BaseModel):
@@ -48,9 +48,7 @@ class KubeConnectConfig(BaseModel):
     image: str = "us-central1-docker.pkg.dev/agentsea-dev/taskara/api:latest"
 
 
-class KubeTaskServerRuntime(
-    TaskServerRuntime["KubeTaskServerRuntime", KubeConnectConfig]
-):
+class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]):
     """A container runtime that uses Kubernetes to manage Pods directly"""
 
     def __init__(self, cfg: Optional[KubeConnectConfig] = None) -> None:
@@ -232,7 +230,7 @@ class KubeTaskServerRuntime(
         return self.cfg
 
     @classmethod
-    def connect(cls, cfg: KubeConnectConfig) -> "KubeTaskServerRuntime":
+    def connect(cls, cfg: KubeConnectConfig) -> "KubeTrackerRuntime":
         return cls(cfg)
 
     @retry(stop=stop_after_attempt(15))
@@ -556,14 +554,14 @@ class KubeTaskServerRuntime(
         self,
         name: str,
         local_port: Optional[int] = None,
-        task_server_port: int = 9070,
+        tracker_port: int = 9070,
         background: bool = True,
         owner_id: Optional[str] = None,
     ) -> Optional[int]:
         if local_port is None:
             local_port = find_open_port(9070, 10090)
 
-        cmd = f"kubectl port-forward pod/{name} {local_port}:{task_server_port} -n {self.namespace}"
+        cmd = f"kubectl port-forward pod/{name} {local_port}:{tracker_port} -n {self.namespace}"
 
         if background:
             proc = subprocess.Popen(
@@ -613,7 +611,7 @@ class KubeTaskServerRuntime(
         self,
         owner_id: Optional[str] = None,
         source: bool = False,
-    ) -> List[TaskServer]:
+    ) -> List[Tracker]:
         instances = []
 
         if source:
@@ -625,14 +623,14 @@ class KubeTaskServerRuntime(
                     name = pod.metadata.name
 
                     instances.append(
-                        TaskServer(name=name, runtime=self, status="running", port=9070)
+                        Tracker(name=name, runtime=self, status="running", port=9070)
                     )
             except ApiException as e:
                 print(f"Failed to list pods: {e}")
                 raise
 
         else:
-            instances = TaskServer.find(owner_id=owner_id, runtime_name=self.name())
+            instances = Tracker.find(owner_id=owner_id, runtime_name=self.name())
 
         return instances
 
@@ -641,19 +639,19 @@ class KubeTaskServerRuntime(
         name: str,
         owner_id: Optional[str] = None,
         source: bool = False,
-    ) -> TaskServer:
+    ) -> Tracker:
         if source:
             try:
                 pod = self.core_api.read_namespaced_pod(
                     name=name, namespace=self.namespace
                 )
-                return TaskServer(name=name, runtime=self, status="running", port=9070)
+                return Tracker(name=name, runtime=self, status="running", port=9070)
             except ApiException as e:
                 print(f"Failed to get pod '{name}': {e}")
                 raise
 
         else:
-            instances = TaskServer.find(
+            instances = Tracker.find(
                 name=name, owner_id=owner_id, runtime_name=self.name()
             )
             if not instances:
@@ -705,7 +703,7 @@ class KubeTaskServerRuntime(
         resource_requests: V1ResourceRequests = V1ResourceRequests(),
         resource_limits: V1ResourceLimits = V1ResourceLimits(),
         auth_enabled: bool = True,
-    ) -> TaskServer:
+    ) -> Tracker:
         print("creating task server...")
         if not self.img:
             raise ValueError("img not found")
@@ -722,7 +720,7 @@ class KubeTaskServerRuntime(
             auth_enabled=auth_enabled,
         )
 
-        return TaskServer(
+        return Tracker(
             name=name,
             runtime=self,
             status="running",

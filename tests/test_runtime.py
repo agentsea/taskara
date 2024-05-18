@@ -3,7 +3,7 @@ import json
 
 from threadmem import V1RoleThread
 
-from taskara.runtime.process import ProcessTaskServerRuntime, ProcessConnectConfig
+from taskara.runtime.process import ProcessTrackerRuntime, ProcessConnectConfig
 from taskara import (
     Task,
     V1Task,
@@ -20,8 +20,8 @@ from skillpacks import V1ActionEvent, ActionEvent, V1Action
 from toolfuse.models import V1ToolRef
 
 
-def test_process_task_server_runtime():
-    runtime = ProcessTaskServerRuntime()
+def test_process_tracker_runtime():
+    runtime = ProcessTrackerRuntime()
     assert runtime.name() == "process"
     assert runtime.connect_config_type() == ProcessConnectConfig
     assert runtime.connect_config().model_dump() == {}
