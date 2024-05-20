@@ -31,7 +31,7 @@ class Task(WithDB):
         description: Optional[str] = None,
         max_steps: int = 30,
         owner_id: Optional[str] = None,
-        device: Optional[V1Device] = None,
+        device: Optional[V1Device | str] = None,
         device_type: Optional[V1DeviceType] = None,
         id: Optional[str] = None,
         status: str = "defined",
@@ -119,7 +119,7 @@ class Task(WithDB):
         self._max_steps = value
 
     @property
-    def device(self) -> Optional[V1Device]:
+    def device(self) -> Optional[V1Device | str]:
         return self._device
 
     @device.setter
@@ -258,7 +258,10 @@ class Task(WithDB):
 
         device = None
         if self._device:
-            device = self._device.model_dump_json()
+            if isinstance(self._device, V1Device):
+                device = self._device.model_dump_json()
+            else:
+                device = self._device
 
         device_type = None
         if self._device_type:
