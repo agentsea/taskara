@@ -1040,7 +1040,7 @@ class Task(WithDB):
                     logger.error(f"Raw Response: {response.text}")
                 raise
             logger.debug(f"response: {response.__dict__}")
-            logger.debug(f"esponse.status_code: {response.status_code}")
+            logger.debug(f"response.status_code: {response.status_code}")
 
             try:
                 response_json = response.json()
