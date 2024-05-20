@@ -5,6 +5,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import json
+import os
 
 import docker
 from docker.errors import NotFound
@@ -29,6 +30,7 @@ class DockerConnectConfig(BaseModel):
 class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectConfig]):
 
     def __init__(self, cfg: Optional[DockerConnectConfig] = None) -> None:
+        self._configure_docker_socket()
         if not cfg:
             cfg = DockerConnectConfig()
 
@@ -39,6 +41,22 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
             self.client = docker.from_env(timeout=cfg.timeout)
         else:
             self.client = docker.from_env()
+
+    def _configure_docker_socket(self):
+        if os.path.exists("/var/run/docker.sock"):
+            docker_socket = "unix:///var/run/docker.sock"
+        else:
+            user = os.environ.get("USER")
+            if os.path.exists(f"/Users/{user}/.docker/run/docker.sock"):
+                docker_socket = f"unix:///Users/{user}/.docker/run/docker.sock"
+            else:
+                raise FileNotFoundError(
+                    (
+                        "Neither '/var/run/docker.sock' nor '/Users/<USER>/.docker/run/docker.sock' are available."
+                        "Please make sure you have Docker installed and running."
+                    )
+                )
+        os.environ["DOCKER_HOST"] = docker_socket
 
     @classmethod
     def name(cls) -> str:
@@ -117,6 +135,8 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
         resource_limits: V1ResourceLimits = V1ResourceLimits(),
         auth_enabled: bool = True,
     ) -> Tracker:
+
+        self.client.images.pull(self.img)
         _labels = {
             "provisioner": "taskara",
             "server_name": name,
