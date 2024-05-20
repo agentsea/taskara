@@ -18,6 +18,7 @@ from .db.models import TaskRecord
 from .db.conn import WithDB
 from .server.models import V1Prompts, V1Task, V1TaskUpdate, V1Tasks
 from .env import HUB_API_KEY_ENV
+from .util import is_json
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -309,7 +310,10 @@ class Task(WithDB):
 
         device = None
         if record.device:  # type: ignore
-            device = V1Device.model_validate_json(str(record.device))
+            if is_json(str(record.device)):
+                device = V1Device.model_validate_json(str(record.device))
+            else:
+                device = str(record.device)
 
         device_type = None
         if record.device_type:  # type: ignore
