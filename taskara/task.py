@@ -346,9 +346,9 @@ class Task(WithDB):
         metadata: Optional[dict] = None,
         thread: Optional[str] = None,
     ) -> None:
-        logger.debug(f"posting message to thread {thread}: ", msg)
+        logger.debug(f"posting message to thread {thread}: {msg}")
         if hasattr(self, "_remote") and self._remote:
-            logger.debug("posting msg to remote task", self._id)
+            logger.debug(f"posting msg to remote task: {self._id}")
             try:
                 data = {"msg": msg, "role": role, "images": images}
                 if thread:
@@ -361,7 +361,7 @@ class Task(WithDB):
                 )
                 return
             except Exception as e:
-                logger.error("failed to post message to remote: ", e)
+                logger.error(f"failed to post message to remote: {e}")
                 raise
 
         if not thread:
@@ -369,7 +369,7 @@ class Task(WithDB):
 
         logger.debug("finding local thread...")
         for thrd in self._threads:
-            logger.debug("checking thread: ", thrd.name, thrd.id)
+            logger.debug(f"checking thread: {thrd.name} {thrd.id}")
             if thrd.id == thread or thrd.name == thread:
                 logger.debug("found local thread")
                 thrd.post(role, msg, images, private, metadata)
@@ -399,7 +399,7 @@ class Task(WithDB):
                 return out
 
             except Exception as e:
-                logger.error("failed to get prompts from remote: ", e)
+                logger.error(f"failed to get prompts from remote: {e}")
                 raise
 
         if not ids:
@@ -431,7 +431,7 @@ class Task(WithDB):
                 return Episode.from_v1(v1episode)
 
             except Exception as e:
-                logger.error("failed to get prompts from remote: ", e)
+                logger.error(f"failed to get prompts from remote: {e}")
                 raise
 
         episodes = Episode.find(id=id)
@@ -455,7 +455,7 @@ class Task(WithDB):
             owner_id = self.owner_id
 
         if hasattr(self, "_remote") and self._remote:
-            logger.debug("posting msg to remote task", self._id)
+            logger.debug(f"posting msg to remote task: {self._id}")
             try:
                 if isinstance(prompt, str):
                     prompt = Prompt.find(id=prompt)[0]
@@ -481,7 +481,7 @@ class Task(WithDB):
                 return event
 
             except Exception as e:
-                logger.error("failed to post message to remote: ", e)
+                logger.error(f"failed to post message to remote: {e}")
                 raise
 
         if not hasattr(self, "_episode") or not self._episode:
@@ -504,7 +504,7 @@ class Task(WithDB):
         event: ActionEvent,
     ) -> None:
         if hasattr(self, "_remote") and self._remote:
-            logger.debug("posting msg to remote task", self._id)
+            logger.debug(f"posting msg to remote task {self._id}")
             try:
                 data = event.to_v1().model_dump()
                 self._remote_request(
@@ -516,7 +516,7 @@ class Task(WithDB):
                 return
 
             except Exception as e:
-                logger.error("failed to post message to remote: ", e)
+                logger.error(f"failed to post message to remote: {e}")
                 raise
 
         if not hasattr(self, "_episode") or not self._episode:
@@ -719,17 +719,17 @@ class Task(WithDB):
         raise ValueError(f"Thread {thread} not found")
 
     def save(self) -> None:
-        logger.debug("saving task", self._id)
+        logger.debug(f"saving task {self._id}")
         # Generate the new version hash
         new_version = self.generate_version_hash()
 
         if hasattr(self, "_remote") and self._remote:
-            logger.debug("saving remote task", self._id)
+            logger.debug(f"saving remote task {self._id}")
             try:
                 existing_task = self._remote_request(
                     self._remote, "GET", f"/v1/tasks/{self._id}"
                 )
-                logger.debug("found existing task", existing_task)
+                logger.debug(f"found existing task: {existing_task}")
 
                 if existing_task["version"] != self._version:
                     pass
@@ -738,7 +738,7 @@ class Task(WithDB):
                 existing_task = None
 
             if existing_task:
-                logger.debug("updating existing task", existing_task)
+                logger.debug(f"updating existing task {existing_task}")
                 if self._version != new_version:
                     self._version = new_version
                     logger.debug(f"Version updated to {self._version}")
@@ -749,9 +749,9 @@ class Task(WithDB):
                     f"/v1/tasks/{self._id}",
                     json_data=self.to_update_v1().model_dump(),
                 )
-                logger.debug("updated existing task", self._id)
+                logger.debug(f"updated existing task: {self._id}")
             else:
-                logger.debug("creating new task", self._id)
+                logger.debug(f"creating new task {self._id}")
                 if self._version != new_version:
                     self._version = new_version
                     logger.debug(f"Version updated to {self._version}")
@@ -762,9 +762,9 @@ class Task(WithDB):
                     "/v1/tasks",
                     json_data=self.to_v1().model_dump(),
                 )
-                logger.debug("created new task", self._id)
+                logger.debug(f"created new task {self._id}")
         else:
-            logger.debug("saving local db task", self._id)
+            logger.debug(f"saving local db task: {self._id}")
             if hasattr(self, "_version"):
                 if self._version != new_version:
                     self._version = new_version
@@ -781,7 +781,7 @@ class Task(WithDB):
     @classmethod
     def find(cls, remote: Optional[str] = None, **kwargs) -> List["Task"]:
         if remote:
-            logger.debug("finding remote tasks for: ", remote, kwargs["owner_id"])
+            logger.debug(f"finding remote tasks for: {remote}")
             remote_response = cls._remote_request(
                 remote, "GET", "/v1/tasks", json_data={**kwargs, "sort": "created_desc"}
             )
@@ -792,7 +792,7 @@ class Task(WithDB):
                 ]
                 for task in out:
                     task._remote = remote
-                    logger.debug("returning task: ", task.__dict__)
+                    logger.debug(f"returning task: {task.__dict__}")
                 return out
             else:
                 return []
@@ -930,15 +930,15 @@ class Task(WithDB):
         return obj
 
     def refresh(self, auth_token: Optional[str] = None) -> None:
-        logger.debug("refreshing task", self._id)
+        logger.debug(f"refreshing task {self._id}")
         if hasattr(self, "_remote") and self._remote:
-            logger.debug("refreshing remote task", self._id)
+            logger.debug(f"refreshing remote task {self._id}")
             try:
 
                 remote_task = self._remote_request(
                     self._remote, "GET", f"/v1/tasks/{self._id}", auth_token=auth_token
                 )
-                logger.debug("found remote task", remote_task)
+                logger.debug(f"found remote task {remote_task}")
                 if remote_task:
                     v1 = V1Task(**remote_task)
                     self._description = v1.description
@@ -966,7 +966,7 @@ class Task(WithDB):
                         )
                     else:
                         self._prompts = []
-                    logger.debug("\nrefreshed remote task", self._id)
+                    logger.debug(f"refreshed remote task {self._id}")
             except requests.RequestException as e:
                 raise e
         else:
@@ -988,7 +988,7 @@ class Task(WithDB):
             self._parameters = task._parameters
             self._threads = task._threads
             self._prompts = task._prompts
-            logger.debug("\nrefreshed local task", self._id)
+            logger.debug(f"refreshed local task {self._id}")
 
     @classmethod
     def _remote_request(
@@ -1011,20 +1011,20 @@ class Task(WithDB):
             headers["Authorization"] = f"Bearer {auth_token}"
         try:
             if method.upper() == "GET":
-                logger.debug("\ncalling remote task GET with url: ", url)
-                logger.debug("\ncalling remote task GET with headers: ", headers)
+                logger.debug(f"calling remote task GET with url: {url}")
+                logger.debug(f"calling remote task GET with headers: {headers}")
                 response = requests.get(url, headers=headers)
             elif method.upper() == "POST":
-                logger.debug("\ncalling remote task POST with: ", url)
-                logger.debug("\ncalling remote task POST with headers: ", headers)
+                logger.debug(f"calling remote task POST with: {url}")
+                logger.debug(f"calling remote task POST with headers: {headers}")
                 response = requests.post(url, json=json_data, headers=headers)
             elif method.upper() == "PUT":
-                logger.debug("\ncalling remote task PUT with: ", url)
-                logger.debug("\ncalling remote task PUT with headers: ", headers)
+                logger.debug(f"calling remote task PUT with: {url}")
+                logger.debug(f"calling remote task PUT with headers: {headers}")
                 response = requests.put(url, json=json_data, headers=headers)
             elif method.upper() == "DELETE":
-                logger.debug("\ncalling remote task DELETE with: ", url)
-                logger.debug("\ncalling remote task DELETE with headers: ", headers)
+                logger.debug(f"calling remote task DELETE with: {url}")
+                logger.debug(f"calling remote task DELETE with headers: {headers}")
                 response = requests.delete(url, headers=headers)
             else:
                 return None
@@ -1032,22 +1032,22 @@ class Task(WithDB):
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
-                logger.error("HTTP Error:", e)
-                logger.error("Status Code:", response.status_code)
+                logger.error(f"HTTP Error: {e}")
+                logger.error(f"Status Code: {response.status_code}")
                 try:
-                    logger.error("Response Body:", response.json())
+                    logger.error(f"Response Body: {response.json()}")
                 except ValueError:
-                    logger.error("Raw Response:", response.text)
+                    logger.error(f"Raw Response: {response.text}")
                 raise
-            logger.debug("\nresponse: ", response.__dict__)
-            logger.debug("\response.status_code: ", response.status_code)
+            logger.debug(f"response: {response.__dict__}")
+            logger.debug(f"response.status_code: {response.status_code}")
 
             try:
                 response_json = response.json()
-                logger.debug("\nresponse_json: ", response_json)
+                logger.debug(f"response_json: {response_json}")
                 return response_json
             except ValueError:
-                logger.debug("Raw Response:", response.text)
+                logger.debug(f"Raw Response: {response.text}")
                 return None
 
         except requests.RequestException as e:
