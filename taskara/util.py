@@ -3,6 +3,7 @@ import string
 import subprocess
 from typing import Optional
 import socket
+import json
 
 
 def generate_random_string(length: int = 8):
@@ -55,3 +56,11 @@ def find_open_port(start_port: int = 1024, end_port: int = 65535) -> Optional[in
             except socket.error:
                 continue  # Port is in use, try the next one
     return None  # No open port found
+
+
+def is_json(my_string):
+    try:
+        json.loads(my_string)
+    except ValueError:
+        return False
+    return True

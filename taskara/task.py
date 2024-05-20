@@ -18,6 +18,7 @@ from .db.models import TaskRecord
 from .db.conn import WithDB
 from .server.models import V1Prompts, V1Task, V1TaskUpdate, V1Tasks
 from .env import HUB_API_KEY_ENV
+from .util import is_json
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ class Task(WithDB):
         description: Optional[str] = None,
         max_steps: int = 30,
         owner_id: Optional[str] = None,
-        device: Optional[V1Device] = None,
+        device: Optional[V1Device | str] = None,
         device_type: Optional[V1DeviceType] = None,
         id: Optional[str] = None,
         status: str = "defined",
@@ -119,7 +120,7 @@ class Task(WithDB):
         self._max_steps = value
 
     @property
-    def device(self) -> Optional[V1Device]:
+    def device(self) -> Optional[V1Device | str]:
         return self._device
 
     @device.setter
@@ -258,7 +259,10 @@ class Task(WithDB):
 
         device = None
         if self._device:
-            device = self._device.model_dump_json()
+            if isinstance(self._device, V1Device):
+                device = self._device.model_dump_json()
+            else:
+                device = self._device
 
         device_type = None
         if self._device_type:
@@ -306,7 +310,10 @@ class Task(WithDB):
 
         device = None
         if record.device:  # type: ignore
-            device = V1Device.model_validate_json(str(record.device))
+            if is_json(str(record.device)):
+                device = V1Device.model_validate_json(str(record.device))
+            else:
+                device = str(record.device)
 
         device_type = None
         if record.device_type:  # type: ignore
