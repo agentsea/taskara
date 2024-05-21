@@ -502,20 +502,20 @@ dev = ["PyTest", "PyTest-Cov", "bump2version (<1)", "sphinx (<2)", "tox"]
 
 [[package]]
 name = "devicebay"
-version = "0.1.23"
+version = "0.1.24"
 description = "Devices for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "devicebay-0.1.23-py3-none-any.whl", hash = "sha256:a9f7b32857b7b3d82adcbe3058df51c39571f3f3984a4a7c741519f513973ab2"},
-    {file = "devicebay-0.1.23.tar.gz", hash = "sha256:2269fb95f190cdaad161cec8bcade5d085be12fef4e5ed294d8b9e3cb51e58da"},
+    {file = "devicebay-0.1.24-py3-none-any.whl", hash = "sha256:9b4b8cfcbdacef4b17618573722af79548ddaba5bbb244112402008c34a34bf7"},
+    {file = "devicebay-0.1.24.tar.gz", hash = "sha256:fb1e071847e19ad613b650e73f2814187a320ec263103c4515af75a31a7c8c36"},
 ]
 
 [package.dependencies]
 playwright = {version = ">=1.43.0,<2.0.0", extras = ["browser"]}
 pygithub = {version = ">=2.3.0,<3.0.0", extras = ["github"]}
 sqlalchemy = ">=2.0.29,<3.0.0"
-toolfuse = ">=0.1.22,<0.2.0"
+toolfuse = ">=0.1.24,<0.2.0"
 
 [[package]]
 name = "distro"
@@ -2761,13 +2761,13 @@ typing-extensions = ">=4.6.3,<5.0.0"
 
 [[package]]
 name = "toolfuse"
-version = "0.1.23"
+version = "0.1.24"
 description = "Tools for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "toolfuse-0.1.23-py3-none-any.whl", hash = "sha256:31d80cb09582204040c0b7dd2a416894984fbf03199a4340e191ccc120d0de30"},
-    {file = "toolfuse-0.1.23.tar.gz", hash = "sha256:ee8a5333ac35bb0400a849adf111533bfa98c6b203a11f0ccf3f565f72fbdda2"},
+    {file = "toolfuse-0.1.24-py3-none-any.whl", hash = "sha256:2d55faeb45372ef472453f45305a0827761acc5958b722b315b748e202610d15"},
+    {file = "toolfuse-0.1.24.tar.gz", hash = "sha256:e0e5de629d0e55acba36ba445451423ce6254cd263b785817e9df74bc0bd58bc"},
 ]
 
 [package.dependencies]
@@ -3387,4 +3387,4 @@ runtime = ["docker", "google-auth", "google-cloud-container", "kubernetes"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "48407c7b8d129b45bb35a8b49ab87e15e618daeb898159932b2f7c279eb8fd99"
+content-hash = "df0f44cd27843e60c4c01fb8fe2a7b0075f1681721ba9fb2333aee880e01bdb2"
