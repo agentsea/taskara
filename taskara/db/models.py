@@ -15,6 +15,7 @@ class TaskRecord(Base):
     max_steps = Column(Integer, nullable=False, default=30)
     device = Column(String, nullable=True)
     device_type = Column(String, nullable=True)
+    expect = Column(String, nullable=True)
     assigned_to = Column(String, nullable=True)
     assigned_type = Column(String, nullable=True)
     status = Column(String, nullable=False)

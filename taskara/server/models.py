@@ -26,6 +26,7 @@ class V1Task(BaseModel):
     max_steps: int = 30
     device: Optional[V1Device] = None
     device_type: Optional[V1DeviceType] = None
+    expect_schema: Optional[Dict[str, Any]] = None
     status: Optional[str] = None
     threads: Optional[List[V1RoleThread]] = None
     prompts: Optional[List[str]] = None

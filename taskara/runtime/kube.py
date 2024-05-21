@@ -757,3 +757,62 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
             sys.exit(1)
 
         return handle_signal
+
+    def refresh(self, owner_id: Optional[str] = None) -> None:
+        """
+        Reconciles the database against the Kubernetes pods running.
+
+        Parameters:
+            owner_id (Optional[str]): The owner ID to filter the trackers. If None, refreshes for all owners.
+        """
+        # List all Kubernetes pods with the specific label
+        label_selector = "provisioner=surfkit"
+        try:
+            running_pods = self.core_api.list_namespaced_pod(
+                namespace=self.namespace, label_selector=label_selector
+            )
+        except ApiException as e:
+            print(f"Failed to list pods: {e}")
+            raise
+
+        running_pod_names = {pod.metadata.name for pod in running_pods.items}
+
+        # List all trackers in the database
+        if owner_id:
+            db_trackers = Tracker.find(owner_id=owner_id, runtime_name=self.name())
+        else:
+            db_trackers = Tracker.find(runtime_name=self.name())
+
+        db_tracker_names = {tracker.name for tracker in db_trackers}
+
+        # Determine trackers to add or remove from the database
+        pods_to_add = running_pod_names - db_tracker_names
+        pods_to_remove = db_tracker_names - running_pod_names
+
+        # Add new pods to the database
+        for pod_name in pods_to_add:
+            pod = self.core_api.read_namespaced_pod(
+                name=pod_name, namespace=self.namespace
+            )
+            new_tracker = Tracker(
+                name=pod_name,
+                runtime=self,
+                port=9070,
+                status="running",
+                owner_id=owner_id,
+            )
+            new_tracker.save()  # Assuming you have a save method to persist the tracker
+
+        # Remove pods from the database that are no longer running
+        for tracker_name in pods_to_remove:
+            trackers = Tracker.find(
+                name=tracker_name, owner_id=owner_id, runtime_name=self.name()
+            )
+            if not trackers:
+                continue
+            tracker = trackers[0]
+            tracker.delete()
+
+        print(
+            f"Refresh completed: added {len(pods_to_add)} trackers, removed {len(pods_to_remove)} trackers."
+        )

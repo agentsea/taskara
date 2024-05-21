@@ -1,6 +1,6 @@
 import uuid
 import time
-from typing import List, Optional, TypeVar, Any, Dict
+from typing import List, Optional, TypeVar, Any, Dict, Type
 import requests
 import os
 import json
@@ -33,6 +33,7 @@ class Task(WithDB):
         owner_id: Optional[str] = None,
         device: Optional[V1Device] = None,
         device_type: Optional[V1DeviceType] = None,
+        expect: Optional[Type[BaseModel]] = None,
         id: Optional[str] = None,
         status: str = "defined",
         created: Optional[float] = None,
@@ -71,6 +72,7 @@ class Task(WithDB):
         self._labels = labels
         self._tags = tags
         self._episode = episode
+        self._expect_schema = expect.model_json_schema() if expect else None
 
         self._threads = []
         if threads:
@@ -133,6 +135,14 @@ class Task(WithDB):
     @device_type.setter
     def device_type(self, value: Optional[V1DeviceType]):
         self._device_type = value
+
+    @property
+    def expect(self) -> Optional[Dict[str, Any]]:
+        return self._expect_schema
+
+    @expect.setter
+    def expect(self, value: Optional[Type[BaseModel]]):
+        self._expect_schema = value.model_json_schema() if value else None
 
     @property
     def owner_id(self) -> Optional[str]:
@@ -264,6 +274,10 @@ class Task(WithDB):
         if self._device_type:
             device_type = self._device_type.model_dump_json()
 
+        expect = None
+        if self._expect_schema:
+            expect = json.dumps(self._expect_schema)
+
         if not hasattr(self, "_episode") or not self._episode:
             raise ValueError("episode not set")
 
@@ -274,6 +288,7 @@ class Task(WithDB):
             max_steps=self._max_steps,
             device=device,
             device_type=device_type,
+            expect=expect,
             status=self._status,
             created=self._created,
             started=self._started,
@@ -312,6 +327,10 @@ class Task(WithDB):
         if record.device_type:  # type: ignore
             device_type = V1DeviceType.model_validate_json(str(record.device_type))
 
+        expect = None
+        if record.expect:  # type: ignore
+            expect = json.loads(str(record.expect))
+
         obj = cls.__new__(cls)
         obj._id = record.id
         obj._owner_id = record.owner_id
@@ -319,6 +338,7 @@ class Task(WithDB):
         obj._max_steps = record.max_steps
         obj._device = device
         obj._device_type = device_type
+        obj._expect_schema = expect
         obj._status = record.status
         obj._created = record.created
         obj._started = record.started
@@ -849,6 +869,7 @@ class Task(WithDB):
             max_steps=self._max_steps,
             device=self._device,
             device_type=self.device_type,
+            expect_schema=self._expect_schema,
             threads=[t.to_v1() for t in self._threads],
             prompts=[p.id for p in self._prompts],
             status=self._status,
@@ -895,6 +916,7 @@ class Task(WithDB):
         obj._max_steps = v1.max_steps
         obj._device = v1.device
         obj._device_type = v1.device_type
+        obj._expect_schema = v1.expect_schema
         obj._status = v1.status if v1.status else "defined"
         obj._created = v1.created
         obj._started = v1.started
@@ -945,6 +967,7 @@ class Task(WithDB):
                     self._max_steps = v1.max_steps
                     self._device = v1.device
                     self._device_type = v1.device_type
+                    self._expect_schema = v1.expect_schema
                     self._status = v1.status if v1.status else "defined"
                     self._created = v1.created
                     self._started = v1.started
@@ -976,6 +999,7 @@ class Task(WithDB):
             self._max_steps = task._max_steps
             self._device = task._device
             self._device_type = task._device_type
+            self._expect_schema = task._expect_schema
             self._status = task._status
             self._created = task._created
             self._started = task._started

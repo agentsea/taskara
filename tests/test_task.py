@@ -1,10 +1,18 @@
-from taskara import Task
+from pydantic import BaseModel
 from threadmem import RoleThread
+
+from taskara import Task
 
 
 # Test the thread creation functionality within the Task class
 def test_create_thread():
-    task = Task(description="Test Task", owner_id="owner123", id="task123")
+    class Expected(BaseModel):
+        foo: str
+        bar: int
+
+    task = Task(
+        description="Test Task", owner_id="owner123", id="task123", expect=Expected
+    )
     assert len(task.threads) == 1
 
     # Directly call the method that doesn't involve remote calls
@@ -20,7 +28,13 @@ def test_create_thread():
 
 # Test posting a message to a thread within the Task class
 def test_post_message():
-    task = Task(description="Test Task 2", owner_id="owner1234", id="task1234")
+    class Expected(BaseModel):
+        foo: str
+        bar: int
+
+    task = Task(
+        description="Test Task 2", owner_id="owner1234", id="task1234", expect=Expected
+    )
 
     # Directly call the method that doesn't involve remote calls
     task.create_thread(name="Prompt", public=True)
