@@ -133,6 +133,16 @@ class Tracker(WithDB):
             return [cls.from_record(record) for record in records]
         raise ValueError("No session")
 
+    @classmethod
+    def active_runtimes(cls) -> List["TrackerRuntime"]:
+        """Get all runtimes currently being used by a tracker
+
+        Returns:
+            List[TrackerRuntime]: a list of tracker runtimes
+        """
+        trackers = cls.find()
+        return [tracker.runtime for tracker in trackers]
+
     def to_v1(self) -> V1Tracker:
         """Convert to V1 API model"""
         return V1Tracker(
@@ -399,7 +409,6 @@ class TrackerRuntime(Generic[R, C], ABC):
         """
         pass
 
-    
     @abstractmethod
     def refresh(self, owner_id: Optional[str] = None) -> None:
         """Refresh the runtime
