@@ -441,7 +441,7 @@ class ProcessTrackerRuntime(
                     status="running",
                     owner_id=owner_id,
                 )
-                new_tracker.save()  # Assuming you have a save method to persist the tracker
+                new_tracker.save()
             except FileNotFoundError:
                 logger.warning(f"No metadata found for process {process_name}")
 

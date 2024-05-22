@@ -397,7 +397,7 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
                 status="running",
                 owner_id=owner_id,
             )
-            new_tracker.save()  # Assuming you have a save method to persist the tracker
+            new_tracker.save()
 
         # Remove containers from the database that are no longer running
         for tracker_name in containers_to_remove:
