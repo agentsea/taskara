@@ -502,13 +502,13 @@ dev = ["PyTest", "PyTest-Cov", "bump2version (<1)", "sphinx (<2)", "tox"]
 
 [[package]]
 name = "devicebay"
-version = "0.1.24"
+version = "0.1.25"
 description = "Devices for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "devicebay-0.1.24-py3-none-any.whl", hash = "sha256:9b4b8cfcbdacef4b17618573722af79548ddaba5bbb244112402008c34a34bf7"},
-    {file = "devicebay-0.1.24.tar.gz", hash = "sha256:fb1e071847e19ad613b650e73f2814187a320ec263103c4515af75a31a7c8c36"},
+    {file = "devicebay-0.1.25-py3-none-any.whl", hash = "sha256:b3c4d1bcef085d70f53dedef61da9a8e3d218748737faf62fb38f7e09d394a27"},
+    {file = "devicebay-0.1.25.tar.gz", hash = "sha256:8f6bfeba9daa399ddbb113f43ff5451c4dbe1f6b3930393933ec7f7997db1c2d"},
 ]
 
 [package.dependencies]
@@ -3387,4 +3387,4 @@ runtime = ["docker", "google-auth", "google-cloud-container", "kubernetes"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "cbf2bc45ba975703aba56608603e39c84d0556466d6efaa28a72b5f4f42126df"
+content-hash = "fcc518c3dab2daa86a8ca8c9ee353b002a0948346449776efe838574777b2d11"

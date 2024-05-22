@@ -18,8 +18,8 @@ google-cloud-container = {version = "^2.45.0", optional = true}
 namesgenerator = "^0.3"
 typer = {version = "^0.12.3", optional = true}
 tabulate = {version = "^0.9.0", optional = true}
-devicebay = "^0.1.24"
 skillpacks = "^0.1.29"
+devicebay = "^0.1.25"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"
