@@ -398,3 +398,13 @@ class TrackerRuntime(Generic[R, C], ABC):
             Tuple[int, str]: Status code and response text
         """
         pass
+
+    
+    @abstractmethod
+    def refresh(self, owner_id: Optional[str] = None) -> None:
+        """Refresh the runtime
+
+        Args:
+            owner_id (Optional[str], optional): Owner id to scope it to. Defaults to None.
+        """
+        pass

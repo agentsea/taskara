@@ -353,3 +353,63 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
         except Exception as e:
             print(f"Failed to fetch logs for container '{name}': {e}")
             raise
+
+    def refresh(self, owner_id: Optional[str] = None) -> None:
+        """
+        Reconciles the database against the Docker containers running.
+
+        Parameters:
+            owner_id (Optional[str]): The owner ID to filter the trackers. If None, refreshes for all owners.
+        """
+        # List all Docker containers with the specific label
+        label_filter = {"label": "provisioner=taskara"}
+        running_containers = self.client.containers.list(filters=label_filter, all=True)
+        running_container_names = {container.name for container in running_containers}  # type: ignore
+
+        # List all trackers in the database
+        if owner_id:
+            db_trackers = Tracker.find(owner_id=owner_id, runtime_name=self.name())
+        else:
+            db_trackers = Tracker.find(runtime_name=self.name())
+
+        db_tracker_names = {tracker.name for tracker in db_trackers}
+
+        # Determine trackers to add or remove from the database
+        containers_to_add = running_container_names - db_tracker_names
+        containers_to_remove = db_tracker_names - running_container_names
+
+        # Add new containers to the database
+        for container_name in containers_to_add:
+            container = self.client.containers.get(container_name)
+            env_vars = container.attrs.get("Config", {}).get("Env", [])
+            port = next(
+                (
+                    int(var.split("=")[1])
+                    for var in env_vars
+                    if var.startswith("TASK_SERVER_PORT=")
+                ),
+                9070,
+            )
+            new_tracker = Tracker(
+                name=container_name,
+                runtime=self,
+                port=port,
+                status="running",
+                owner_id=owner_id,
+            )
+            new_tracker.save()
+
+        # Remove containers from the database that are no longer running
+        for tracker_name in containers_to_remove:
+            trackers = Tracker.find(
+                name=tracker_name, owner_id=owner_id, runtime_name=self.name()
+            )
+            if not trackers:
+                continue
+
+            tracker = trackers[0]
+            tracker.delete()
+
+        print(
+            f"Refresh completed: added {len(containers_to_add)} trackers, removed {len(containers_to_remove)} trackers."
+        )

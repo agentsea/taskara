@@ -387,3 +387,74 @@ class ProcessTrackerRuntime(
             # If not following, return all logs as a single string
             with open(log_path, "r") as log_file:
                 return log_file.read()
+
+    def refresh(self, owner_id: Optional[str] = None) -> None:
+        """
+        Reconciles the database against the running processes.
+
+        Parameters:
+            owner_id (Optional[str]): The owner ID to filter the trackers. If None, refreshes for all owners.
+        """
+        # List all running processes with the specific environment variable
+        all_processes = subprocess.check_output(
+            "ps ax -o pid,command", shell=True, text=True
+        )
+        running_processes = {}
+        for line in all_processes.splitlines():
+            if "TASK_SERVER=" in line:
+                pid, command = line.split(maxsplit=1)
+                server_name = next(
+                    (
+                        part.split("=")[1]
+                        for part in command.split()
+                        if part.startswith("TASK_SERVER=")
+                    ),
+                    None,
+                )
+                if server_name:
+                    running_processes[server_name] = pid
+
+        running_process_names = set(running_processes.keys())
+
+        # List all trackers in the database
+        if owner_id:
+            db_trackers = Tracker.find(owner_id=owner_id, runtime_name=self.name())
+        else:
+            db_trackers = Tracker.find(runtime_name=self.name())
+
+        db_tracker_names = {tracker.name for tracker in db_trackers}
+
+        # Determine trackers to add or remove from the database
+        processes_to_add = running_process_names - db_tracker_names
+        processes_to_remove = db_tracker_names - running_process_names
+
+        # Add new processes to the database
+        for process_name in processes_to_add:
+            try:
+                with open(f".data/proc/{process_name}.json", "r") as f:
+                    metadata = json.load(f)
+
+                new_tracker = Tracker(
+                    name=metadata["name"],
+                    runtime=self,
+                    port=metadata["port"],
+                    status="running",
+                    owner_id=owner_id,
+                )
+                new_tracker.save()
+            except FileNotFoundError:
+                logger.warning(f"No metadata found for process {process_name}")
+
+        # Remove processes from the database that are no longer running
+        for tracker_name in processes_to_remove:
+            trackers = Tracker.find(
+                name=tracker_name, owner_id=owner_id, runtime_name=self.name()
+            )
+            if not trackers:
+                continue
+            tracker = trackers[0]
+            tracker.delete()
+
+        print(
+            f"Refresh completed: added {len(processes_to_add)} trackers, removed {len(processes_to_remove)} trackers."
+        )

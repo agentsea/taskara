@@ -1,7 +1,10 @@
-from namesgenerator import get_random_name
 import json
 
-from threadmem import V1RoleThread
+from mllm import V1Prompt, RoleMessage, RoleThread, V1RoleMessage, Prompt
+from openai import BaseModel
+from skillpacks import V1ActionEvent, ActionEvent, V1Action
+from toolfuse.models import V1ToolRef
+from namesgenerator import get_random_name
 
 from taskara.runtime.process import ProcessTrackerRuntime, ProcessConnectConfig
 from taskara import (
@@ -15,9 +18,6 @@ from taskara.server.models import (
     V1RemoveThread,
     V1Tasks,
 )
-from mllm import V1Prompt, RoleMessage, RoleThread, V1RoleMessage, Prompt
-from skillpacks import V1ActionEvent, ActionEvent, V1Action
-from toolfuse.models import V1ToolRef
 
 
 def test_process_tracker_runtime():
@@ -25,6 +25,8 @@ def test_process_tracker_runtime():
     assert runtime.name() == "process"
     assert runtime.connect_config_type() == ProcessConnectConfig
     assert runtime.connect_config().model_dump() == {}
+
+    runtime.refresh()
 
     name = get_random_name("-")
     assert name
@@ -147,7 +149,7 @@ def test_process_tracker_runtime():
         action_event = ActionEvent(
             prompt=prompt,
             action=V1Action(name="test", parameters={}),
-            tool=V1ToolRef(module="test", name="test"),
+            tool=V1ToolRef(module="test", type="test"),
         )
 
         status, _ = server.call(
@@ -177,8 +179,15 @@ def test_process_tracker_runtime():
         assert status == 200
 
         print("creating a new task")
+
+        class Expected(BaseModel):
+            foo: str
+            bar: int
+
         new_task = Task(
-            description="a good test", remote=f"http://localhost:{server.port}"
+            description="a good test",
+            remote=f"http://localhost:{server.port}",
+            expect=Expected,
         )
         print("created a new task")
 
