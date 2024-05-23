@@ -45,7 +45,7 @@ class Task(WithDB):
         assigned_type: Optional[str] = None,
         error: Optional[str] = None,
         output: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = {},
+        parameters: Dict[str, Any] = {},
         remote: Optional[str] = None,
         version: Optional[str] = None,
         labels: Dict[str, str] = {},
@@ -352,7 +352,7 @@ class Task(WithDB):
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
-        obj.tags = json.loads(str(record.tags))
+        obj._tags = json.loads(str(record.tags))
         obj._labels = json.loads(str(record.labels))
         obj._episode = episode
         return obj

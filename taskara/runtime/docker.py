@@ -6,6 +6,7 @@ import urllib.error
 import urllib.parse
 import json
 import os
+import logging
 
 import docker
 from docker.errors import NotFound
@@ -20,6 +21,9 @@ from taskara.server.models import (
 )
 
 from .base import Tracker, TrackerRuntime
+
+
+logger = logging.getLogger(__name__)
 
 
 class DockerConnectConfig(BaseModel):
@@ -363,7 +367,7 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
         """
         # List all Docker containers with the specific label
         label_filter = {"label": "provisioner=taskara"}
-        running_containers = self.client.containers.list(filters=label_filter, all=True)
+        running_containers = self.client.containers.list(filters=label_filter)
         running_container_names = {container.name for container in running_containers}  # type: ignore
 
         # List all trackers in the database
@@ -410,6 +414,6 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
             tracker = trackers[0]
             tracker.delete()
 
-        print(
+        logger.debug(
             f"Refresh completed: added {len(containers_to_add)} trackers, removed {len(containers_to_remove)} trackers."
         )
