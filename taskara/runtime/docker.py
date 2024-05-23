@@ -170,7 +170,7 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
             name=name,
         )
         if container and type(container) != bytes:
-            print(f"ran container '{container.id}'")  # type: ignore
+            logger.debug(f"ran container '{container.id}'")  # type: ignore
 
         return Tracker(
             name=name,
@@ -215,7 +215,6 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
         background: bool = True,
         owner_id: Optional[str] = None,
     ) -> Optional[int]:
-        print("no proxy needed")
         return
 
     def list(
@@ -297,14 +296,14 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
 
             # If found, remove the container
             container.remove(force=True)  # type: ignore
-            print(f"Successfully deleted container: {name}")
+            logger.debug(f"Successfully deleted container: {name}")
         except NotFound:
             # Handle the case where the container does not exist
-            print(f"Container '{name}' does not exist.")
+            logger.debug(f"Container '{name}' does not exist.")
             raise
         except Exception as e:
             # Handle other potential errors
-            print(f"Failed to delete container '{name}': {e}")
+            logger.error(f"Failed to delete container '{name}': {e}")
             raise
 
     def clean(self, owner_id: Optional[str] = None) -> None:
@@ -323,10 +322,10 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
                     container.name  # type: ignore
                 )  # or container.id for container ID
                 container.remove(force=True)  # type: ignore
-                print(f"Deleted container: {container_name_or_id}")
+                logger.debug(f"Deleted container: {container_name_or_id}")
                 deleted_containers.append(container_name_or_id)
             except Exception as e:
-                print(f"Failed to delete container: {e}")
+                logger.error(f"Failed to delete container: {e}")
 
         return None
 
