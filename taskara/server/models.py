@@ -50,6 +50,24 @@ class V1Tasks(BaseModel):
     tasks: List[V1Task]
 
 
+class V1TaskTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    description: str
+    max_steps: int = 30
+    device: Optional[V1Device] = None
+    device_type: Optional[V1DeviceType] = None
+    expect_schema: Optional[Dict[str, Any]] = None
+    parameters: Optional[Dict[str, Any]] = {}
+    owner_id: Optional[str] = None
+    tags: List[str] = []
+    labels: Dict[str, str] = {}
+    created: float
+
+
+class V1TaskTemplates(BaseModel):
+    templates: List[V1TaskTemplate]
+
+
 class V1UserProfile(BaseModel):
     email: Optional[str] = None
     display_name: Optional[str] = None
@@ -114,3 +132,14 @@ class V1ResourceRequests(BaseModel):
 
 class V1Prompts(BaseModel):
     prompts: List[V1Prompt]
+
+
+class V1Benchmark(BaseModel):
+    id: str
+    name: str
+    description: str
+    tasks: List[V1TaskTemplate]
+    owner_id: Optional[str]
+    tags: List[str]
+    labels: Dict[str, str]
+    created: float

@@ -11,6 +11,7 @@ import subprocess
 import atexit
 import signal
 import sys
+import logging
 
 from kubernetes import client, config
 from google.oauth2 import service_account
@@ -28,6 +29,8 @@ from taskara.server.models import V1Task
 from taskara.util import find_open_port
 from .base import TrackerRuntime, Tracker
 from taskara.server.models import V1Tracker, V1ResourceLimits, V1ResourceRequests
+
+logger = logging.getLogger(__name__)
 
 
 class GKEOpts(BaseModel):
@@ -772,7 +775,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                 namespace=self.namespace, label_selector=label_selector
             )
         except ApiException as e:
-            print(f"Failed to list pods: {e}")
+            logger.error(f"Failed to list pods: {e}")
             raise
 
         running_pod_names = {pod.metadata.name for pod in running_pods.items}
@@ -813,6 +816,6 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
             tracker = trackers[0]
             tracker.delete()
 
-        print(
+        logger.debug(
             f"Refresh completed: added {len(pods_to_add)} trackers, removed {len(pods_to_remove)} trackers."
         )

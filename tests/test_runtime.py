@@ -1,4 +1,5 @@
 import json
+import time
 
 from mllm import V1Prompt, RoleMessage, RoleThread, V1RoleMessage, Prompt
 from openai import BaseModel
@@ -49,6 +50,7 @@ def test_process_tracker_runtime():
         assert task.description == "Search for french ducks"
         assert task.owner_id == "tom@myspace.com"
         task_id = task.id
+        time.sleep(1)
 
         # Get tasks
         status, text = server.call(path="/v1/tasks", method="GET")
@@ -190,6 +192,10 @@ def test_process_tracker_runtime():
             expect=Expected,
         )
         print("created a new task")
+
+    except:
+        print(server.logs())
+        raise
 
     finally:
         # Ensure the server is deleted

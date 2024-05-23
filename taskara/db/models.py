@@ -1,9 +1,17 @@
 import time
-
-from sqlalchemy import Column, String, Float, Integer
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import Boolean, Column, String, Float, Integer, ForeignKey, Table
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
+
+benchmark_task_association = Table(
+    "benchmark_task_association",
+    Base.metadata,
+    Column("benchmark_id", String, ForeignKey("benchmarks.id"), primary_key=True),
+    Column(
+        "task_template_id", String, ForeignKey("task_templates.id"), primary_key=True
+    ),
+)
 
 
 class TaskRecord(Base):
@@ -31,6 +39,55 @@ class TaskRecord(Base):
     tags = Column(String, nullable=True)
     labels = Column(String, nullable=True)
     episode_id = Column(String, nullable=True)
+
+
+class TaskTemplateRecord(Base):
+    __tablename__ = "task_templates"
+
+    id = Column(String, primary_key=True)
+    owner_id = Column(String, nullable=True)
+    description = Column(String, nullable=False)
+    max_steps = Column(Integer, nullable=False, default=30)
+    device = Column(String, nullable=True)
+    device_type = Column(String, nullable=True)
+    expect = Column(String, nullable=True)
+    parameters = Column(String, nullable=True)
+    tags = Column(String, nullable=True)
+    labels = Column(String, nullable=True)
+    created = Column(Float, default=time.time)
+
+    benchmarks = relationship(
+        "BenchmarkRecord",
+        secondary=benchmark_task_association,
+        back_populates="task_templates",
+    )
+
+
+class BenchmarkRecord(Base):
+    __tablename__ = "benchmarks"
+
+    id = Column(String, primary_key=True)
+    owner_id = Column(String, nullable=True)
+    name = Column(String, unique=True, index=True)
+    description = Column(String, nullable=False)
+    owner_id = Column(String, nullable=True)
+    public = Column(Boolean, default=False)
+    tags = Column(String, nullable=True)
+    labels = Column(String, nullable=True)
+    created = Column(Float, default=time.time)
+
+    task_templates = relationship(
+        "TaskTemplateRecord",
+        secondary=benchmark_task_association,
+        back_populates="benchmarks",
+    )
+
+
+class EvalRecord(Base):
+    __tablename__ = "evals"
+
+    id = Column(String, primary_key=True)
+    owner_id = Column(String, nullable=True)
 
 
 class TrackerRecord(Base):

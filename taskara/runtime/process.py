@@ -455,6 +455,6 @@ class ProcessTrackerRuntime(
             tracker = trackers[0]
             tracker.delete()
 
-        print(
+        logger.debug(
             f"Refresh completed: added {len(processes_to_add)} trackers, removed {len(processes_to_remove)} trackers."
         )
