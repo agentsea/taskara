@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-import uuid
+import shortuuid
 import time
 
 from threadmem.server.models import V1RoleThread
@@ -21,7 +21,7 @@ class V1TaskUpdate(BaseModel):
 
 
 class V1Task(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = Field(default_factory=lambda: shortuuid.uuid())
     description: str
     max_steps: int = 30
     device: Optional[V1Device] = None
@@ -51,7 +51,7 @@ class V1Tasks(BaseModel):
 
 
 class V1TaskTemplate(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = Field(default_factory=lambda: shortuuid.uuid())
     description: str
     max_steps: int = 30
     device: Optional[V1Device] = None

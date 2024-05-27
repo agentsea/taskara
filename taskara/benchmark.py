@@ -1,19 +1,19 @@
-from typing import List, Optional, Type, Dict, Any
-import uuid
 import json
 import time
+from typing import Any, Dict, List, Optional, Type
 
+import shortuuid
 from devicebay import V1Device, V1DeviceType
 from pydantic import BaseModel
 
-from taskara.task import Task
 from taskara.db.conn import WithDB
 from taskara.db.models import (
-    TaskTemplateRecord,
     BenchmarkRecord,
+    TaskTemplateRecord,
     benchmark_task_association,
 )
-from taskara.server.models import V1TaskTemplate, V1TaskTemplates, V1Benchmark
+from taskara.server.models import V1Benchmark, V1TaskTemplate
+from taskara.task import Task
 
 
 class TaskTemplate(WithDB):
@@ -31,7 +31,7 @@ class TaskTemplate(WithDB):
         labels: Dict[str, str] = {},
         tags: List[str] = [],
     ) -> None:
-        self._id = str(uuid.uuid4())
+        self._id = shortuuid.uuid()
         self._description = description
         self._max_steps = max_steps
         self._owner_id = owner_id
@@ -208,7 +208,7 @@ class TaskTemplate(WithDB):
         if not owner_id:
             raise ValueError("Owner id is required in v1 or as parameter")
 
-        obj._id = v1.id if v1.id else str(uuid.uuid4())
+        obj._id = v1.id if v1.id else shortuuid.uuid()
         obj._owner_id = owner_id
         obj._description = v1.description
         obj._max_steps = v1.max_steps
@@ -243,7 +243,7 @@ class Benchmark(WithDB):
         public: bool = False,
     ):
         self._tasks = tasks
-        self._id = str(uuid.uuid4())
+        self._id = shortuuid.uuid()
         self._name = name
         self._description = description
         self._owner_id = owner_id
@@ -342,7 +342,7 @@ class Benchmark(WithDB):
         if not owner_id:
             raise ValueError("Owner id is required in v1 or as parameter")
 
-        obj._id = v1.id if v1.id else str(uuid.uuid4())
+        obj._id = v1.id if v1.id else shortuuid.uuid()
         obj._owner_id = owner_id
         obj._name = v1.name
         obj._description = v1.description
@@ -384,7 +384,7 @@ class Eval(WithDB):
         remote: str | None = None,
         owner_id: str | None = None,
     ) -> None:
-        self._id = str(uuid.uuid4())
+        self._id = shortuuid.uuid()
         self._benchmark = benchmark
         self._tasks: List[Task] = []
         self._owner_id = owner_id

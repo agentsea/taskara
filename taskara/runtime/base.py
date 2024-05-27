@@ -1,6 +1,6 @@
 from typing import List, TypeVar, Type, Generic, Union, Iterator, Optional, Dict, Tuple
 from abc import ABC, abstractmethod
-import uuid
+import shortuuid
 import time
 import json
 
@@ -31,7 +31,7 @@ class Tracker(WithDB):
         owner_id: Optional[str] = None,
         labels: Optional[Dict[str, str]] = None,
     ) -> None:
-        self._id = str(uuid.uuid4())
+        self._id = shortuuid.uuid()
         self._name = name
         self._port = port
         self._status = status

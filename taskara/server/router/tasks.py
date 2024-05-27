@@ -6,7 +6,7 @@ from threadmem import RoleMessage, RoleThread, V1RoleThreads, V1RoleThread
 from mllm import Prompt, V1Prompt
 from skillpacks import V1ActionEvent, ActionEvent, V1Episode, Episode
 
-from taskara import Task
+from taskara import Task, TaskStatus
 from taskara.server.models import (
     V1TaskUpdate,
     V1Task,
@@ -40,6 +40,8 @@ async def create_task(
     if not episode:
         episode = Episode()
 
+    status = data.status or "created"
+    task_status = TaskStatus(status)
     task = Task(
         id=data.id,
         max_steps=data.max_steps,
@@ -47,7 +49,7 @@ async def create_task(
         device_type=data.device_type,
         owner_id=current_user.email,
         description=data.description,
-        status=data.status or "created",
+        status=task_status,
         parameters=data.parameters if data.parameters else {},
         assigned_to=data.assigned_to,
         assigned_type=data.assigned_type,
@@ -105,7 +107,7 @@ async def update_task(
     if data.description:
         task.description = data.description
     if data.status:
-        task.status = data.status
+        task.status = TaskStatus(data.status)
     if data.assigned_to:
         task.assigned_to = data.assigned_to
     if data.error:

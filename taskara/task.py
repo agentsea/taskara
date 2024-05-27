@@ -1,26 +1,42 @@
-import uuid
-import time
-from typing import List, Optional, TypeVar, Any, Dict, Type
-import requests
-import os
-import json
-import hashlib
-import logging
 import copy
+import hashlib
+import json
+import logging
+import os
+import time
+from enum import Enum
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
-from threadmem import RoleThread, RoleMessage, V1RoleThreads
-from mllm import Prompt, V1Prompt
-from skillpacks import Episode, ActionEvent, V1Action, V1ToolRef, V1Episode
+import requests
+import shortuuid
 from devicebay import V1Device, V1DeviceType
+from mllm import Prompt, V1Prompt
 from pydantic import BaseModel
+from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef
+from threadmem import RoleMessage, RoleThread, V1RoleThreads
 
-from .db.models import TaskRecord
 from .db.conn import WithDB
-from .server.models import V1Prompts, V1Task, V1TaskUpdate, V1Tasks
+from .db.models import TaskRecord
 from .env import HUB_API_KEY_ENV
+from .server.models import V1Prompts, V1Task, V1Tasks, V1TaskUpdate
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
+
+
+class TaskStatus(Enum):
+    """Task status"""
+
+    DEFINED = "defined"
+    CREATED = "created"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ERROR = "error"
+    WAITING = "waiting"
+    CANCELING = "canceling"
+    CANCELED = "canceled"
+    REVIEW = "review"
 
 
 class Task(WithDB):
@@ -35,7 +51,7 @@ class Task(WithDB):
         device_type: Optional[V1DeviceType] = None,
         expect: Optional[Type[BaseModel]] = None,
         id: Optional[str] = None,
-        status: str = "defined",
+        status: TaskStatus = TaskStatus.DEFINED,
         created: Optional[float] = None,
         started: float = 0.0,
         completed: float = 0.0,
@@ -52,7 +68,7 @@ class Task(WithDB):
         tags: List[str] = [],
         episode: Optional[Episode] = None,
     ):
-        self._id = id if id is not None else str(uuid.uuid4())
+        self._id = id if id is not None else shortuuid.uuid()
         self._description = description
         self._max_steps = max_steps
         self._owner_id = owner_id
@@ -153,11 +169,11 @@ class Task(WithDB):
         self._owner_id = value
 
     @property
-    def status(self) -> str:
+    def status(self) -> TaskStatus:
         return self._status
 
     @status.setter
-    def status(self, value: str):
+    def status(self, value: TaskStatus):
         self._status = value
 
     @property
@@ -289,7 +305,7 @@ class Task(WithDB):
             device=device,
             device_type=device_type,
             expect=expect,
-            status=self._status,
+            status=self._status.value,
             created=self._created,
             started=self._started,
             completed=self._completed,
@@ -339,7 +355,7 @@ class Task(WithDB):
         obj._device = device
         obj._device_type = device_type
         obj._expect_schema = expect
-        obj._status = record.status
+        obj._status = TaskStatus(record.status)
         obj._created = record.created
         obj._started = record.started
         obj._completed = record.completed
@@ -556,7 +572,7 @@ class Task(WithDB):
         copied_task = copy.deepcopy(self)
 
         # Resetting the unique ID and timestamps
-        copied_task._id = str(uuid.uuid4())
+        copied_task._id = shortuuid.uuid()
         now = time.time()
         copied_task._created = now
         copied_task._started = 0.0
@@ -872,7 +888,7 @@ class Task(WithDB):
             expect_schema=self._expect_schema,
             threads=[t.to_v1() for t in self._threads],
             prompts=[p.id for p in self._prompts],
-            status=self._status,
+            status=self._status.value,
             created=self._created,
             started=self._started,
             completed=self._completed,
@@ -893,7 +909,7 @@ class Task(WithDB):
         return V1TaskUpdate(
             description=self._description,
             max_steps=self._max_steps,
-            status=self._status,
+            status=self._status.value,
             assigned_to=self._assigned_to,
             error=self._error,
             output=self._output,
@@ -909,15 +925,18 @@ class Task(WithDB):
         if not owner_id:
             raise ValueError("Owner id is required in v1 or as parameter")
 
+        status = v1.status if v1.status else "defined"
+        task_status = TaskStatus(status)
+
         # Manually set attributes on the object
-        obj._id = v1.id if v1.id else str(uuid.uuid4())
+        obj._id = v1.id if v1.id else shortuuid.uuid()
         obj._owner_id = owner_id
         obj._description = v1.description
         obj._max_steps = v1.max_steps
         obj._device = v1.device
         obj._device_type = v1.device_type
         obj._expect_schema = v1.expect_schema
-        obj._status = v1.status if v1.status else "defined"
+        obj._status = task_status
         obj._created = v1.created
         obj._started = v1.started
         obj._completed = v1.completed
@@ -963,12 +982,14 @@ class Task(WithDB):
                 logger.debug(f"found remote task {remote_task}")
                 if remote_task:
                     v1 = V1Task(**remote_task)
+                    status = v1.status if v1.status else "defined"
+                    task_status = TaskStatus(status)
                     self._description = v1.description
                     self._max_steps = v1.max_steps
                     self._device = v1.device
                     self._device_type = v1.device_type
                     self._expect_schema = v1.expect_schema
-                    self._status = v1.status if v1.status else "defined"
+                    self._status = task_status
                     self._created = v1.created
                     self._started = v1.started
                     self._completed = v1.completed
