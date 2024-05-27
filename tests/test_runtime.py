@@ -11,8 +11,10 @@ from taskara import Benchmark, Task, TaskTemplate, V1Benchmark, V1Task, V1TaskTe
 from taskara.runtime.process import ProcessConnectConfig, ProcessTrackerRuntime
 from taskara.server.models import (
     V1Benchmark,
+    V1Benchmarks,
     V1DeviceType,
     V1Eval,
+    V1Evals,
     V1Tasks,
     V1TaskTemplate,
 )
@@ -204,11 +206,25 @@ def test_process_tracker_runtime():
         )
         assert status == 200
 
-        eval = bench.eval()
+        status, text = server.call(
+            path="/v1/benchmarks",
+            method="GET",
+        )
+        benchmarks = V1Benchmarks.model_validate_json(text)
+        assert benchmarks.benchmarks[0].description == "A good benchmark"
+
+        eval = bench.eval(owner_id="tom@myspace.com")
         status, _ = server.call(
             path="/v1/evals", method="POST", data=eval.to_v1().model_dump()
         )
         assert status == 200
+
+        status, text = server.call(
+            path="/v1/evals",
+            method="GET",
+        )
+        evals = V1Evals.model_validate_json(text)
+        assert evals.evals[0].owner_id == "tom@myspace.com"
 
     except:
         print(server.logs())
