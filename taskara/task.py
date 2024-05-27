@@ -29,7 +29,7 @@ class TaskStatus(Enum):
 
     DEFINED = "defined"
     CREATED = "created"
-    RUNNING = "running"
+    IN_PROGRESS = "in progress"
     COMPLETED = "completed"
     FAILED = "failed"
     ERROR = "error"
