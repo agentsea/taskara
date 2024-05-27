@@ -1,12 +1,13 @@
 import logging.config
-from contextlib import asynccontextmanager
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .router.benchmarks import router as benchmarks_router
 from .router.tasks import router as tasks_router
 
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
@@ -59,6 +60,7 @@ app.add_middleware(
 )
 
 app.include_router(tasks_router)
+app.include_router(benchmarks_router)
 
 
 @app.get("/")

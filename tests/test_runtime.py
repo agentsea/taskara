@@ -1,23 +1,20 @@
 import json
 import time
 
-from mllm import V1Prompt, RoleMessage, RoleThread, V1RoleMessage, Prompt
-from openai import BaseModel
-from skillpacks import V1ActionEvent, ActionEvent, V1Action
-from toolfuse.models import V1ToolRef
+from mllm import Prompt, RoleMessage, RoleThread
 from namesgenerator import get_random_name
+from openai import BaseModel
+from skillpacks import ActionEvent, V1Action
+from toolfuse.models import V1ToolRef
 
-from taskara.runtime.process import ProcessTrackerRuntime, ProcessConnectConfig
-from taskara import (
-    Task,
-    V1Task,
-)
+from taskara import Benchmark, Task, TaskTemplate, V1Benchmark, V1Task, V1TaskTemplate
+from taskara.runtime.process import ProcessConnectConfig, ProcessTrackerRuntime
 from taskara.server.models import (
-    V1TaskUpdate,
-    V1PostMessage,
-    V1AddThread,
-    V1RemoveThread,
+    V1Benchmark,
+    V1DeviceType,
+    V1Eval,
     V1Tasks,
+    V1TaskTemplate,
 )
 
 
@@ -192,6 +189,26 @@ def test_process_tracker_runtime():
             expect=Expected,
         )
         print("created a new task")
+
+        tpl0 = TaskTemplate(
+            description="A good test 0", device_type=V1DeviceType(name="desktop")
+        )
+        tpl1 = TaskTemplate(
+            description="A good test 1", device_type=V1DeviceType(name="mobile")
+        )
+        bench = Benchmark(
+            name="test-bench", description="A good benchmark", tasks=[tpl0, tpl1]
+        )
+        status, _ = server.call(
+            path="/v1/benchmarks", method="POST", data=bench.to_v1().model_dump()
+        )
+        assert status == 200
+
+        eval = bench.eval()
+        status, _ = server.call(
+            path="/v1/evals", method="POST", data=eval.to_v1().model_dump()
+        )
+        assert status == 200
 
     except:
         print(server.logs())

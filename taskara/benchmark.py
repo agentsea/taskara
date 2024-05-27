@@ -9,10 +9,13 @@ from pydantic import BaseModel
 from taskara.db.conn import WithDB
 from taskara.db.models import (
     BenchmarkRecord,
+    EvalRecord,
+    TaskRecord,
     TaskTemplateRecord,
     benchmark_task_association,
+    eval_task_association,
 )
-from taskara.server.models import V1Benchmark, V1TaskTemplate
+from taskara.server.models import V1Benchmark, V1Eval, V1TaskTemplate
 from taskara.task import Task
 
 
@@ -283,6 +286,21 @@ class Benchmark(WithDB):
     def tags(self) -> List[str]:
         return self._tags
 
+    def eval(
+        self,
+        assigned_to: str | None = None,
+        assigned_type: str | None = None,
+        remote: str | None = None,
+        owner_id: str | None = None,
+    ) -> "Eval":
+        return Eval(
+            benchmark=self,
+            assigned_to=assigned_to,
+            assigned_type=assigned_type,
+            remote=remote,
+            owner_id=owner_id,
+        )
+
     def to_record(self) -> BenchmarkRecord:
         record = BenchmarkRecord(
             id=self._id,
@@ -353,6 +371,18 @@ class Benchmark(WithDB):
 
         return obj
 
+    @classmethod
+    def find(cls, remote: Optional[str] = None, **kwargs) -> List["Benchmark"]:
+        for db in cls.get_db():
+            records = (
+                db.query(BenchmarkRecord)
+                .filter_by(**kwargs)
+                .order_by(BenchmarkRecord.created.desc())
+                .all()
+            )
+            return [cls.from_record(record, db) for record in records]
+        raise ValueError("No session")
+
     def save(self) -> None:
         for db in self.get_db():
             # Save the benchmark record
@@ -372,6 +402,28 @@ class Benchmark(WithDB):
                 db.execute(association)
                 db.commit()
 
+    def delete(self) -> None:
+        for db in self.get_db():
+            # Delete the benchmark record
+            benchmark_record = db.query(BenchmarkRecord).filter_by(id=self._id).first()
+            if benchmark_record:
+                db.delete(benchmark_record)
+                db.commit()
+
+            # Delete the task records and associations
+            db.execute(
+                benchmark_task_association.delete().where(
+                    benchmark_task_association.c.benchmark_id == self._id
+                )
+            )
+            db.commit()
+
+            for task in self._tasks:
+                task_record = db.query(TaskTemplateRecord).filter_by(id=task.id).first()
+                if task_record:
+                    db.delete(task_record)
+                    db.commit()
+
 
 class Eval(WithDB):
     """An agent evaluation on a benchmark"""
@@ -379,10 +431,10 @@ class Eval(WithDB):
     def __init__(
         self,
         benchmark: Benchmark,
-        assigned_to: str | None = None,
-        assigned_type: str | None = None,
-        remote: str | None = None,
-        owner_id: str | None = None,
+        assigned_to: Optional[str] = None,
+        assigned_type: Optional[str] = None,
+        remote: Optional[str] = None,
+        owner_id: Optional[str] = None,
     ) -> None:
         self._id = shortuuid.uuid()
         self._benchmark = benchmark
@@ -414,3 +466,101 @@ class Eval(WithDB):
     @property
     def owner_id(self) -> Optional[str]:
         return self._owner_id
+
+    def to_record(self) -> EvalRecord:
+        return EvalRecord(
+            id=self._id,
+            benchmark_id=self._benchmark.id,
+            owner_id=self._owner_id,
+            created=time.time(),
+        )
+
+    @classmethod
+    def from_record(cls, record: EvalRecord, db_session) -> "Eval":
+        benchmark = Benchmark.from_record(
+            db_session.query(BenchmarkRecord).filter_by(id=record.benchmark_id).first(),
+            db_session,
+        )
+        task_ids = (
+            db_session.query(eval_task_association).filter_by(eval_id=record.id).all()
+        )
+        tasks = [
+            Task.from_record(db_session.query(TaskRecord).filter_by(id=task_id).first())
+            for task_id, in task_ids
+        ]
+
+        obj = cls.__new__(cls)
+        obj._id = record.id
+        obj._benchmark = benchmark
+        obj._tasks = tasks
+        obj._owner_id = record.owner_id
+
+        return obj
+
+    def to_v1(self) -> V1Eval:
+        return V1Eval(
+            id=self._id,
+            benchmark=self._benchmark.to_v1(),
+            tasks=[task.to_v1() for task in self._tasks],
+            owner_id=self._owner_id,
+        )
+
+    @classmethod
+    def from_v1(cls, v1: V1Eval, owner_id: Optional[str] = None) -> "Eval":
+        benchmark = Benchmark.from_v1(v1.benchmark, owner_id=owner_id)
+        tasks = [Task.from_v1(task) for task in v1.tasks]
+
+        obj = cls.__new__(cls)
+        obj._id = v1.id if v1.id else shortuuid.uuid()
+        obj._benchmark = benchmark
+        obj._tasks = tasks
+        obj._owner_id = owner_id if owner_id else v1.owner_id
+
+        return obj
+
+    @classmethod
+    def find(cls, remote: Optional[str] = None, **kwargs) -> List["Eval"]:
+        for db in cls.get_db():
+            records = (
+                db.query(EvalRecord)
+                .filter_by(**kwargs)
+                .order_by(EvalRecord.created.desc())
+                .all()
+            )
+            return [cls.from_record(record, db) for record in records]
+        raise ValueError("No session")
+
+    def save(self) -> None:
+        for db in self.get_db():
+            # Save the evaluation record
+            eval_record = self.to_record()
+            db.merge(eval_record)
+            db.commit()
+
+            # Save the task records and associations
+            for task in self._tasks:
+                task_record = task.to_record()
+                db.merge(task_record)
+                db.commit()
+
+                association = eval_task_association.insert().values(
+                    eval_id=self._id, task_id=task.id
+                )
+                db.execute(association)
+                db.commit()
+
+    def delete(self) -> None:
+        for db in self.get_db():
+            # Delete the evaluation record
+            eval_record = db.query(EvalRecord).filter_by(id=self._id).first()
+            if eval_record:
+                db.delete(eval_record)
+                db.commit()
+
+            # Delete the task records and associations
+            db.execute(
+                eval_task_association.delete().where(
+                    eval_task_association.c.eval_id == self._id
+                )
+            )
+            db.commit()
