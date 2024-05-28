@@ -65,17 +65,10 @@ async def create_eval_from_benchmark(
     data: V1BenchmarkEval,
 ):
     logger.debug(f"Finding benchmark by id: {id}")
-    print(f"Finding benchmark by id: {id}", flush=True)
     benchmarks = Benchmark.find(id=id, owner_id=current_user.email)
     if not benchmarks:
         raise HTTPException(status_code=404, detail="Benchmark not found")
-    print("benchmarks", benchmarks)
     benchmark = benchmarks[0]
-
-    benchmarks_all = Benchmark.find()
-    if not benchmarks:
-        raise HTTPException(status_code=404, detail="Benchmark not found")
-    print("benchmarks_all", benchmarks_all)
 
     eval = benchmark.eval(
         data.assigned_to, data.assigned_type, owner_id=current_user.email

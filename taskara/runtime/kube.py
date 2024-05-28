@@ -1,34 +1,39 @@
-from typing import List, Optional, Tuple, Type, Union, Iterator, Dict
-import os
+import atexit
+import base64
 import json
+import logging
+import os
+import signal
+import socket
+import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from tenacity import retry, stop_after_attempt, wait_fixed
-import socket
-import base64
-import subprocess
-import atexit
-import signal
-import sys
-import logging
+from math import log
+from typing import Dict, Iterator, List, Optional, Tuple, Type, Union
 
-from kubernetes import client, config
-from google.oauth2 import service_account
-from google.cloud import container_v1
 from google.auth.transport.requests import Request
-from kubernetes.client.rest import ApiException
-from kubernetes.stream import portforward
+from google.cloud import container_v1
+from google.oauth2 import service_account
+from kubernetes import client, config
 from kubernetes.client import Configuration
 from kubernetes.client.api import core_v1_api
+from kubernetes.client.rest import ApiException
+from kubernetes.stream import portforward
 from namesgenerator import get_random_name
-from tenacity import retry
 from pydantic import BaseModel
+from tenacity import retry, stop_after_attempt, wait_fixed
 
-from taskara.server.models import V1Task
+from taskara.server.models import (
+    V1ResourceLimits,
+    V1ResourceRequests,
+    V1Task,
+    V1Tracker,
+)
 from taskara.util import find_open_port
-from .base import TrackerRuntime, Tracker
-from taskara.server.models import V1Tracker, V1ResourceLimits, V1ResourceRequests
+
+from .base import Tracker, TrackerRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +100,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
         Returns:
             client.V1Secret: The created Kubernetes Secret object.
         """
-        print("creating secret with envs: ", env_vars)
+        logger.debug(f"creating secret with envs: {env_vars}")
         secret = client.V1Secret(
             api_version="v1",
             kind="Secret",
@@ -112,10 +117,10 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
             self.core_api.create_namespaced_secret(
                 namespace=self.namespace, body=secret
             )
-            print(f"Secret created: {name}")
+            logger.debug(f"Secret created: {name}")
             return secret
         except ApiException as e:
-            print(f"Failed to create secret: {e}")
+            logger.error(f"Failed to create secret: {e}")
             raise
 
     def create(
@@ -136,7 +141,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
         secret = None
         if env_vars:
             # Create a secret for the environment variables
-            print("creating secret...")
+            logger.debug("creating secret...")
             secret: Optional[client.V1Secret] = self.create_secret(name, env_vars)
             env_from = [
                 client.V1EnvFromSource(
@@ -154,7 +159,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
         if resource_requests.gpu:
             raise ValueError("GPU resource requests are not supported")
 
-        print("\nusing resources: ", resources.__dict__)
+        logger.debug(f"using resources: {resources.__dict__}")
 
         # Container configuration
         container = client.V1Container(
@@ -197,11 +202,11 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
             created_pod: client.V1Pod = self.core_api.create_namespaced_pod(  # type: ignore
                 namespace=self.namespace, body=pod
             )
-            print(f"Pod created with name='{name}'")
+            logger.debug(f"Pod created with name='{name}'")
             # print("created pod: ", created_pod.__dict__)
             # Update secret's owner reference UID to newly created pod's UID
             if secret:
-                print("updating secret refs...")
+                logger.debug("updating secret refs...")
                 if not secret.metadata:
                     raise ValueError("expected secret metadata to be set")
                 if not created_pod.metadata:
@@ -217,9 +222,9 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                 self.core_api.patch_namespaced_secret(
                     name=secret.metadata.name, namespace=self.namespace, body=secret  # type: ignore
                 )
-                print("secret refs updated")
+                logger.debug("secret refs updated")
         except ApiException as e:
-            print(f"Exception when creating pod: {e}")
+            logger.error(f"Exception when creating pod: {e}")
             raise
 
         self.wait_pod_ready(name)
@@ -258,23 +263,23 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                 "Missing project_id, cluster_name, or region in credentials or metadata"
             )
 
-        print("\nK8s getting cluster...")
+        logger.debug("K8s getting cluster...")
         cluster_request = container_v1.GetClusterRequest(
             name=f"projects/{project_id}/locations/{opts.region}/clusters/{opts.cluster_name}"
         )
         cluster = gke_service.get_cluster(request=cluster_request)
 
         # Configure Kubernetes client
-        print("\nK8s getting token...")
+        logger.debug("K8s getting token...")
         ca_cert = base64.b64decode(cluster.master_auth.cluster_ca_certificate)
         try:
-            print("\nK8s refreshing token...")
+            logger.debug("K8s refreshing token...")
             credentials.refresh(Request())
         except Exception as e:
-            print("\nK8s token refresh failed: ", e)
+            logger.debug(f"K8s token refresh failed: {e}")
             raise e
         access_token = credentials.token
-        print("\nK8s got token: ", access_token)
+        logger.debug(f"K8s got token: {access_token}")
 
         cluster_name = opts.cluster_name
 
@@ -314,7 +319,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
 
         config.load_kube_config_from_dict(config_dict=kubeconfig)
         v1_client = client.CoreV1Api()
-        print("\nK8s returning client...")
+        logger.debug("K8s returning client...")
 
         return v1_client, project_id, cluster_name
 
@@ -331,7 +336,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
         Raises:
             RuntimeError: If the response is not 200 after the specified retries.
         """
-        print(
+        logger.debug(
             f"Checking HTTP 200 readiness for pod {name} on path {path} and port: {port}"
         )
         status_code, response_text = self.call(
@@ -342,7 +347,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
             raise Exception(
                 f"Pod {name} at path {path} is not ready. Status code: {status_code}"
             )
-        print(f"Pod {name} at path {path} responded with: ", response_text)
+        logger.debug(f"Pod {name} at path {path} responded with: {response_text}")
         print(f"Pod {name} at path {path} is ready with status 200.")
 
     @retry(stop=stop_after_attempt(200), wait=wait_fixed(2))
@@ -367,7 +372,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
             print("pod is not ready yet...")
             raise Exception(f"Pod {name} is not ready")
         except ApiException as e:
-            print(f"Failed to read pod status for '{name}': {e}")
+            logger.error(f"Failed to read pod status for '{name}': {e}")
             raise
 
     @retry(stop=stop_after_attempt(15))
@@ -500,22 +505,22 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                     for k, v in headers.items():
                         request.add_header(k, v)
                 request.data = json.dumps(data).encode("utf-8")
-            print(f"Request Data: {request.data}")
+            logger.debug(f"Request Data: {request.data}")
 
         # Send the request and handle the response
         try:
             response = urllib.request.urlopen(request)
             status_code = response.code
             response_text = response.read().decode("utf-8")
-            print(f"Status Code: {status_code}")
+            logger.debug(f"Status Code: {status_code}")
 
             # Parse the JSON response and return a dictionary
             return status_code, response_text
         except urllib.error.HTTPError as e:
             status_code = e.code
             error_message = e.read().decode("utf-8")
-            print(f"Error: {status_code}")
-            print(error_message)
+            logger.debug(f"Error: {status_code}")
+            logger.debug(error_message)
 
             raise SystemError(
                 f"Error making http request kubernetes pod {status_code}: {error_message}"
@@ -607,7 +612,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                 _preload_content=False,  # Important to return a generator when following
             )
         except ApiException as e:
-            print(f"Failed to get logs for pod '{name}': {e}")
+            logger.error(f"Failed to get logs for pod '{name}': {e}")
             raise
 
     def list(
@@ -629,7 +634,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                         Tracker(name=name, runtime=self, status="running", port=9070)
                     )
             except ApiException as e:
-                print(f"Failed to list pods: {e}")
+                logger.error(f"Failed to list pods: {e}")
                 raise
 
         else:
@@ -650,7 +655,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                 )
                 return Tracker(name=name, runtime=self, status="running", port=9070)
             except ApiException as e:
-                print(f"Failed to get pod '{name}': {e}")
+                logger.error(f"Failed to get pod '{name}': {e}")
                 raise
 
         else:
@@ -674,9 +679,9 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                 body=client.V1DeleteOptions(grace_period_seconds=5),
             )
             self.core_api.delete_namespaced_secret(name=name, namespace=self.namespace)
-            print(f"Successfully deleted pod: {name}")
+            logger.debug(f"Successfully deleted pod: {name}")
         except ApiException as e:
-            print(f"Failed to delete pod '{name}': {e}")
+            logger.error(f"Failed to delete pod '{name}': {e}")
             raise
 
     def clean(
@@ -693,9 +698,9 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                     namespace="default",
                     body=client.V1DeleteOptions(grace_period_seconds=5),
                 )
-                print(f"Deleted pod: {pod.metadata.name}")
+                logger.debug(f"Deleted pod: {pod.metadata.name}")
             except ApiException as e:
-                print(f"Failed to delete pod '{pod.metadata.name}': {e}")
+                logger.error(f"Failed to delete pod '{pod.metadata.name}': {e}")
 
     def run(
         self,
@@ -707,7 +712,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
         resource_limits: V1ResourceLimits = V1ResourceLimits(),
         auth_enabled: bool = True,
     ) -> Tracker:
-        print("creating task server...")
+        logger.debug("creating task server...")
         if not self.img:
             raise ValueError("img not found")
 
@@ -742,13 +747,15 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
                 print(line.decode("utf-8"))  # type: ignore
         except KeyboardInterrupt:
             # This block will be executed if SIGINT is caught
-            print(f"Interrupt received, stopping logs and deleting pod '{server_name}'")
+            logger.error(
+                f"Interrupt received, stopping logs and deleting pod '{server_name}'"
+            )
             self.delete(server_name)
         except ApiException as e:
-            print(f"Failed to follow logs for pod '{server_name}': {e}")
+            logger.error(f"Failed to follow logs for pod '{server_name}': {e}")
             raise
         except Exception as e:
-            print(f"An error occurred while fetching logs: {e}")
+            logger.error(f"An error occurred while fetching logs: {e}")
             raise
 
     def _signal_handler(self, server_name: str):
