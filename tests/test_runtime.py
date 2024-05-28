@@ -11,6 +11,7 @@ from taskara import Benchmark, Task, TaskTemplate, V1Benchmark, V1Task, V1TaskTe
 from taskara.runtime.process import ProcessConnectConfig, ProcessTrackerRuntime
 from taskara.server.models import (
     V1Benchmark,
+    V1BenchmarkEval,
     V1Benchmarks,
     V1DeviceType,
     V1Eval,
@@ -70,7 +71,7 @@ def test_process_tracker_runtime():
         # Update the task
         update_data = {
             "description": "Search for german ducks",
-            "status": "in_progress",
+            "status": "in progress",
         }
         status, text = server.call(
             path=f"/v1/tasks/{task_id}", method="PUT", data=update_data
@@ -80,7 +81,7 @@ def test_process_tracker_runtime():
         assert status == 200
         task = V1Task.model_validate(json.loads(text))
         assert task.description == "Search for german ducks"
-        assert task.status == "in_progress"
+        assert task.status == "in progress"
 
         # Post a message to the task
         message_data = {
@@ -193,13 +194,20 @@ def test_process_tracker_runtime():
         print("created a new task")
 
         tpl0 = TaskTemplate(
-            description="A good test 0", device_type=V1DeviceType(name="desktop")
+            description="A good test 0",
+            device_type=V1DeviceType(name="desktop"),
+            owner_id="tom@myspace.com",
         )
         tpl1 = TaskTemplate(
-            description="A good test 1", device_type=V1DeviceType(name="mobile")
+            description="A good test 1",
+            device_type=V1DeviceType(name="mobile"),
+            owner_id="tom@myspace.com",
         )
         bench = Benchmark(
-            name="test-bench", description="A good benchmark", tasks=[tpl0, tpl1]
+            name="test-bench",
+            description="A good benchmark",
+            tasks=[tpl0, tpl1],
+            owner_id="tom@myspace.com",
         )
         status, _ = server.call(
             path="/v1/benchmarks", method="POST", data=bench.to_v1().model_dump()
@@ -213,11 +221,19 @@ def test_process_tracker_runtime():
         benchmarks = V1Benchmarks.model_validate_json(text)
         assert benchmarks.benchmarks[0].description == "A good benchmark"
 
-        eval = bench.eval(owner_id="tom@myspace.com")
-        status, _ = server.call(
-            path="/v1/evals", method="POST", data=eval.to_v1().model_dump()
+        status, text = server.call(
+            path=f"/v1/benchmarks/{benchmarks.benchmarks[0].id}/eval",
+            method="POST",
+            data=V1BenchmarkEval(
+                assigned_to="test_agent", assigned_type="pizza"
+            ).model_dump(),
         )
         assert status == 200
+
+        v1eval = V1Eval.model_validate_json(text)
+        assert v1eval.owner_id == "tom@myspace.com"
+        assert v1eval.assigned_to == "test_agent"
+        assert v1eval.assigned_type == "pizza"
 
         status, text = server.call(
             path="/v1/evals",

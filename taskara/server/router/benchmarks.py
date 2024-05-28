@@ -7,6 +7,7 @@ from taskara.auth.transport import get_user_dependency
 from taskara.benchmark import Benchmark, Eval
 from taskara.server.models import (
     V1Benchmark,
+    V1BenchmarkEval,
     V1Benchmarks,
     V1Eval,
     V1Evals,
@@ -55,6 +56,32 @@ async def delete_benchmark(
 ):
     Benchmark.delete(id=id, owner_id=current_user.email)  # type: ignore
     return {"message": "Benchmark deleted successfully"}
+
+
+@router.post("/v1/benchmarks/{id}/eval", response_model=V1Eval)
+async def create_eval_from_benchmark(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    id: str,
+    data: V1BenchmarkEval,
+):
+    logger.debug(f"Finding benchmark by id: {id}")
+    print(f"Finding benchmark by id: {id}", flush=True)
+    benchmarks = Benchmark.find(id=id, owner_id=current_user.email)
+    if not benchmarks:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    print("benchmarks", benchmarks)
+    benchmark = benchmarks[0]
+
+    benchmarks_all = Benchmark.find()
+    if not benchmarks:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    print("benchmarks_all", benchmarks_all)
+
+    eval = benchmark.eval(
+        data.assigned_to, data.assigned_type, owner_id=current_user.email
+    )
+    eval.save()
+    return eval.to_v1()
 
 
 @router.post("/v1/evals", response_model=V1Eval)

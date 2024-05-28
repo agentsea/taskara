@@ -1,12 +1,13 @@
+import logging
 import os
 import time
-import logging
 
-from sqlalchemy import create_engine, Engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .models import Base
 from taskara.config import AGENTSEA_DB_DIR, DB_NAME
+
+from .models import Base
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ def get_pg_conn() -> Engine:
 def get_sqlite_conn() -> Engine:
     db_path = os.path.join(AGENTSEA_DB_DIR, DB_NAME)
     logger.debug(f"connecting to local sqlite db {db_path}")
+    print(f"connecting to local sqlite db {db_path}")
     os.makedirs(AGENTSEA_DB_DIR, exist_ok=True)
     engine = create_engine(f"sqlite:///{db_path}")
     return engine

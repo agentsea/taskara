@@ -286,6 +286,10 @@ class Benchmark(WithDB):
     def tags(self) -> List[str]:
         return self._tags
 
+    @property
+    def public(self) -> bool:
+        return self._public
+
     def eval(
         self,
         assigned_to: str | None = None,
@@ -337,6 +341,7 @@ class Benchmark(WithDB):
         obj._tags = json.loads(str(record.tags))
         obj._created = record.created
         obj._tasks = tasks
+        obj._public = record.public
         return obj
 
     def to_v1(self) -> V1Benchmark:
@@ -349,11 +354,14 @@ class Benchmark(WithDB):
             tags=self._tags,
             labels=self._labels,
             created=self._created,
+            public=self._public,
         )
 
     @classmethod
     def from_v1(cls, v1: V1Benchmark, owner_id: Optional[str] = None) -> "Benchmark":
         tasks = [TaskTemplate.from_v1(task) for task in v1.tasks]
+        for task in tasks:
+            task.save()
 
         obj = cls.__new__(cls)
         owner_id = owner_id if owner_id else v1.owner_id
@@ -368,6 +376,7 @@ class Benchmark(WithDB):
         obj._labels = v1.labels
         obj._tags = v1.tags
         obj._created = v1.created
+        obj._public = v1.public
 
         return obj
 
@@ -440,6 +449,8 @@ class Eval(WithDB):
         self._benchmark = benchmark
         self._tasks: List[Task] = []
         self._owner_id = owner_id
+        self._assigned_to = assigned_to
+        self._assigned_type = assigned_type
 
         for tpl in self._benchmark.tasks:
             task = tpl.to_task(
@@ -471,6 +482,8 @@ class Eval(WithDB):
         return EvalRecord(
             id=self._id,
             benchmark_id=self._benchmark.id,
+            assigned_to=self._assigned_to,
+            assigned_type=self._assigned_type,
             owner_id=self._owner_id,
             created=time.time(),
         )
@@ -481,12 +494,16 @@ class Eval(WithDB):
             db_session.query(BenchmarkRecord).filter_by(id=record.benchmark_id).first(),
             db_session,
         )
-        task_ids = (
-            db_session.query(eval_task_association).filter_by(eval_id=record.id).all()
+        # Correctly extract task_ids from the association table
+        task_associations = (
+            db_session.query(eval_task_association.c.task_id)
+            .filter_by(eval_id=record.id)
+            .all()
         )
+        task_ids = [task_id for (task_id,) in task_associations]
         tasks = [
             Task.from_record(db_session.query(TaskRecord).filter_by(id=task_id).first())
-            for task_id, in task_ids
+            for task_id in task_ids
         ]
 
         obj = cls.__new__(cls)
@@ -494,6 +511,8 @@ class Eval(WithDB):
         obj._benchmark = benchmark
         obj._tasks = tasks
         obj._owner_id = record.owner_id
+        obj._assigned_to = record.assigned_to
+        obj._assigned_type = record.assigned_type
 
         return obj
 
@@ -502,6 +521,8 @@ class Eval(WithDB):
             id=self._id,
             benchmark=self._benchmark.to_v1(),
             tasks=[task.to_v1() for task in self._tasks],
+            assigned_to=self._assigned_to,
+            assigned_type=self._assigned_type,
             owner_id=self._owner_id,
         )
 
@@ -515,6 +536,8 @@ class Eval(WithDB):
         obj._benchmark = benchmark
         obj._tasks = tasks
         obj._owner_id = owner_id if owner_id else v1.owner_id
+        obj._assigned_to = v1.assigned_to
+        obj._assigned_type = v1.assigned_type
 
         return obj
 

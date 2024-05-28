@@ -43,6 +43,7 @@ def test_benchmark_from_v1():
         id="task1",
         description="Test Task",
         created=0.0,
+        owner_id="owner@example.com",
     )
     v1_benchmark = V1Benchmark(
         id="benchmark1",

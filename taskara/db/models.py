@@ -96,6 +96,8 @@ class EvalRecord(Base):
     id = Column(String, primary_key=True)
     owner_id = Column(String, nullable=True)
     benchmark_id = Column(String, ForeignKey("benchmarks.id"))
+    assigned_to = Column(String, nullable=True)
+    assigned_type = Column(String, nullable=True)
     created = Column(Float, default=time.time)
 
     benchmark = relationship("BenchmarkRecord")

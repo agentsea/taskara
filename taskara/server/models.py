@@ -143,6 +143,12 @@ class V1Benchmark(BaseModel):
     tags: List[str] = []
     labels: Dict[str, str] = {}
     created: float
+    public: bool = False
+
+
+class V1BenchmarkEval(BaseModel):
+    assigned_to: str | None = None
+    assigned_type: str | None = None
 
 
 class V1Benchmarks(BaseModel):
@@ -150,10 +156,12 @@ class V1Benchmarks(BaseModel):
 
 
 class V1Eval(BaseModel):
-    id: Optional[str]
+    id: Optional[str] = None
     benchmark: V1Benchmark
     tasks: List[V1Task]
-    owner_id: Optional[str]
+    assigned_to: Optional[str] = None
+    assigned_type: Optional[str] = None
+    owner_id: Optional[str] = None
 
 
 class V1Evals(BaseModel):
