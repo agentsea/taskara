@@ -1,12 +1,12 @@
-from typing import Optional, List, Dict, Any
-import shortuuid
 import time
+from typing import Any, Dict, List, Optional
 
-from threadmem.server.models import V1RoleThread
-from pydantic import BaseModel, Field
-from devicebay.models import V1Device
+import shortuuid
 from devicebay import V1Device, V1DeviceType
+from devicebay.models import V1Device
 from mllm import V1Prompt
+from pydantic import BaseModel, Field
+from threadmem.server.models import V1RoleThread
 
 
 class V1TaskUpdate(BaseModel):
@@ -140,6 +140,29 @@ class V1Benchmark(BaseModel):
     description: str
     tasks: List[V1TaskTemplate]
     owner_id: Optional[str]
-    tags: List[str]
-    labels: Dict[str, str]
+    tags: List[str] = []
+    labels: Dict[str, str] = {}
     created: float
+    public: bool = False
+
+
+class V1BenchmarkEval(BaseModel):
+    assigned_to: str | None = None
+    assigned_type: str | None = None
+
+
+class V1Benchmarks(BaseModel):
+    benchmarks: List[V1Benchmark]
+
+
+class V1Eval(BaseModel):
+    id: Optional[str] = None
+    benchmark: V1Benchmark
+    tasks: List[V1Task]
+    assigned_to: Optional[str] = None
+    assigned_type: Optional[str] = None
+    owner_id: Optional[str] = None
+
+
+class V1Evals(BaseModel):
+    evals: List[V1Eval]

@@ -1,5 +1,6 @@
 import time
-from sqlalchemy import Boolean, Column, String, Float, Integer, ForeignKey, Table
+
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -11,6 +12,13 @@ benchmark_task_association = Table(
     Column(
         "task_template_id", String, ForeignKey("task_templates.id"), primary_key=True
     ),
+)
+
+eval_task_association = Table(
+    "eval_task_association",
+    Base.metadata,
+    Column("eval_id", String, ForeignKey("evals.id"), primary_key=True),
+    Column("task_id", String, ForeignKey("tasks.id"), primary_key=True),
 )
 
 
@@ -70,7 +78,6 @@ class BenchmarkRecord(Base):
     owner_id = Column(String, nullable=True)
     name = Column(String, unique=True, index=True)
     description = Column(String, nullable=False)
-    owner_id = Column(String, nullable=True)
     public = Column(Boolean, default=False)
     tags = Column(String, nullable=True)
     labels = Column(String, nullable=True)
@@ -88,6 +95,16 @@ class EvalRecord(Base):
 
     id = Column(String, primary_key=True)
     owner_id = Column(String, nullable=True)
+    benchmark_id = Column(String, ForeignKey("benchmarks.id"))
+    assigned_to = Column(String, nullable=True)
+    assigned_type = Column(String, nullable=True)
+    created = Column(Float, default=time.time)
+
+    benchmark = relationship("BenchmarkRecord")
+    tasks = relationship(
+        "TaskRecord",
+        secondary=eval_task_association,
+    )
 
 
 class TrackerRecord(Base):
