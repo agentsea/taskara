@@ -469,12 +469,12 @@ class Task(WithDB):
             except Exception as e:
                 logger.error(f"failed to get prompts from remote: {e}")
                 raise
-        
+
         if not id:
             ep = Episode()
             ep.save()
             return ep
-        
+
         episodes = Episode.find(id=id)
         if not episodes:
             raise ValueError(f"Episode by id '{id}' not found")

@@ -61,7 +61,7 @@ class V1TaskTemplate(BaseModel):
     owner_id: Optional[str] = None
     tags: List[str] = []
     labels: Dict[str, str] = {}
-    created: float
+    created: float = Field(default_factory=lambda: time.time())
 
 
 class V1TaskTemplates(BaseModel):
@@ -135,14 +135,14 @@ class V1Prompts(BaseModel):
 
 
 class V1Benchmark(BaseModel):
-    id: str
+    id: str = Field(default_factory=lambda: shortuuid.uuid())
     name: str
     description: str
     tasks: List[V1TaskTemplate]
-    owner_id: Optional[str]
+    owner_id: Optional[str] = None
     tags: List[str] = []
     labels: Dict[str, str] = {}
-    created: float
+    created: float = Field(default_factory=lambda: time.time())
     public: bool = False
 
 
