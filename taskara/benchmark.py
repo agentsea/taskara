@@ -529,7 +529,10 @@ class Eval(WithDB):
     @classmethod
     def from_v1(cls, v1: V1Eval, owner_id: Optional[str] = None) -> "Eval":
         benchmark = Benchmark.from_v1(v1.benchmark, owner_id=owner_id)
-        tasks = [Task.from_v1(task) for task in v1.tasks]
+        tasks = [
+            Task.from_v1(task, owner_id=owner_id if owner_id else v1.owner_id)
+            for task in v1.tasks
+        ]
 
         obj = cls.__new__(cls)
         obj._id = v1.id if v1.id else shortuuid.uuid()

@@ -1,0 +1,40 @@
+name: AirbnbLiteV1
+description: A simple Airbnb benchmark
+tags: ["GUI", "desktop", "airbnb", "booking"]
+public: true
+tasks:
+  - description: |
+      Find a highly rated one bedroom apartment available in Barcelona Spain
+      from August 5th to August 8th
+    max_steps: 50
+    device_type:
+      name: "desktop"
+    expect_schema:
+      properties:
+        room_id:
+          description: |
+            The id of the room, can be found in the URL e.g. https://www.airbnb.com/rooms/<id>
+          type: string
+      required:
+        - room_id
+      type: object
+    parameters:
+      site: https://airbnb.com
+
+  - description: |
+      Find a highly rated two bedroom apartment available in Boulder CO 
+      from December 9th to December 12th
+    max_steps: 50
+    device_type:
+      name: "desktop"
+    expect_schema:
+      properties:
+        room_id:
+          description: |
+            The id of the room, can be found in the URL e.g. https://www.airbnb.com/rooms/<id>
+          type: string
+      required:
+        - room_id
+      type: object
+    parameters:
+      site: https://airbnb.com
