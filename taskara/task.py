@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 
+from .config import GlobalConfig
 from .db.conn import WithDB
 from .db.models import TaskRecord
 from .env import HUB_API_KEY_ENV
@@ -1055,6 +1056,11 @@ class Task(WithDB):
         if not auth_token:
             auth_token = os.getenv(HUB_API_KEY_ENV)
             logger.debug(f"using hub auth token found in env var {HUB_API_KEY_ENV}")
+
+            config = GlobalConfig.read()
+            if config.api_key:
+                auth_token = config.api_key
+                logger.debug(f"using hub auth token found in global config")
 
         if auth_token:
             logger.debug(f"auth_token: {auth_token}")

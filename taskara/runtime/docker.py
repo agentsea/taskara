@@ -1,27 +1,26 @@
-from typing import List, Optional, Type, Union, Iterator, Dict, Tuple
+import json
+import logging
+import os
 import signal
 import sys
-import urllib.request
 import urllib.error
 import urllib.parse
-import json
-import os
-import logging
+import urllib.request
+from typing import Dict, Iterator, List, Optional, Tuple, Type, Union
 
 import docker
 from docker.errors import NotFound
-from taskara.util import find_open_port
 from pydantic import BaseModel
 
 from taskara.server.models import (
-    V1TrackerRuntimeConnect,
-    V1Tracker,
     V1ResourceLimits,
     V1ResourceRequests,
+    V1Tracker,
+    V1TrackerRuntimeConnect,
 )
+from taskara.util import find_open_port
 
 from .base import Tracker, TrackerRuntime
-
 
 logger = logging.getLogger(__name__)
 

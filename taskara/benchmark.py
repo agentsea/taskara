@@ -359,7 +359,10 @@ class Benchmark(WithDB):
 
     @classmethod
     def from_v1(cls, v1: V1Benchmark, owner_id: Optional[str] = None) -> "Benchmark":
-        tasks = [TaskTemplate.from_v1(task) for task in v1.tasks]
+        tasks = [
+            TaskTemplate.from_v1(task, owner_id=owner_id if owner_id else v1.owner_id)
+            for task in v1.tasks
+        ]
         for task in tasks:
             task.save()
 
