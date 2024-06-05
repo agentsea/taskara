@@ -14,6 +14,7 @@ from mllm import Prompt, V1Prompt
 from pydantic import BaseModel
 from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
+from threadmem.server.models import V1RoleMessage
 
 from .config import GlobalConfig
 from .db.conn import WithDB
@@ -103,10 +104,14 @@ class Task(WithDB):
         self.ensure_thread("feed")
 
     @classmethod
-    def get(cls, id: str, remote: Optional[str] = None) -> "Task":
+    def get(
+        cls, id: str, remote: Optional[str] = None, auth_token: Optional[str] = None
+    ) -> "Task":
         """Get a task by id"""
         if remote:
-            resp = cls._remote_request(remote, "GET", f"/v1/tasks/{id}")
+            resp = cls._remote_request(
+                remote, "GET", f"/v1/tasks/{id}", auth_token=auth_token
+            )
             resp["remote"] = remote
             task = cls.from_v1(V1Task.model_validate(resp))
             return task
@@ -395,6 +400,9 @@ class Task(WithDB):
                     "POST",
                     f"/v1/tasks/{self.id}/msg",
                     data,
+                    auth_token=(
+                        self._auth_token if hasattr(self, "_auth_token") else None
+                    ),
                 )
                 return
             except Exception as e:
@@ -420,6 +428,7 @@ class Task(WithDB):
         task_id: Optional[str] = None,
         remote: Optional[str] = None,
         ids: Optional[List[str]] = None,
+        auth_token: Optional[str] = None,
     ) -> List[Prompt]:
         if remote:
             try:
@@ -427,6 +436,7 @@ class Task(WithDB):
                     remote,
                     "GET",
                     f"/v1/tasks/{task_id}/prompts",
+                    auth_token=auth_token,
                 )
                 v1prompts = V1Prompts.model_validate(prompt_data)
                 out = []
@@ -456,6 +466,7 @@ class Task(WithDB):
         task_id: Optional[str] = None,
         remote: Optional[str] = None,
         id: Optional[str] = None,
+        auth_token: Optional[str] = None,
     ) -> Episode:
         if remote:
             try:
@@ -463,6 +474,7 @@ class Task(WithDB):
                     remote,
                     "GET",
                     f"/v1/tasks/{task_id}/episode",
+                    auth_token=auth_token,
                 )
                 v1episode = V1Episode.model_validate(episode_data)
                 return Episode.from_v1(v1episode)
@@ -519,6 +531,9 @@ class Task(WithDB):
                     "POST",
                     f"/v1/tasks/{self.id}/actions",
                     data,
+                    auth_token=(
+                        self._auth_token if hasattr(self, "_auth_token") else None
+                    ),
                 )
                 return event
 
@@ -541,6 +556,9 @@ class Task(WithDB):
             agent_id=agent_id,
         )
 
+    def set_auth_token(self, token: str) -> None:
+        self._auth_token = token
+
     def record_action_event(
         self,
         event: ActionEvent,
@@ -554,6 +572,9 @@ class Task(WithDB):
                     "POST",
                     f"/v1/tasks/{self.id}/actions",
                     data,
+                    auth_token=(
+                        self._auth_token if hasattr(self, "_auth_token") else None
+                    ),
                 )
                 return
 
@@ -620,6 +641,7 @@ class Task(WithDB):
                     agent_id=agent_id,
                     model=model,
                 ).model_dump(),
+                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
             )
             logger.debug("stored prompt")
             return resp["id"]
@@ -657,6 +679,7 @@ class Task(WithDB):
                     agent_id=prompt.agent_id,
                     model=prompt.model,
                 ).model_dump(),
+                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
             )
             logger.debug("stored prompt")
             return
@@ -671,6 +694,7 @@ class Task(WithDB):
                 self._remote,
                 "POST",
                 f"/v1/tasks/{self._id}/prompts/{prompt_id}/approve",
+                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
             )
             logger.debug("approved prompt")
             return
@@ -696,6 +720,7 @@ class Task(WithDB):
                 "POST",
                 f"/v1/tasks/{self._id}/threads",
                 {"name": name, "public": public, "metadata": metadata, "id": id},
+                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
             )
             logger.debug("removed remote thread")
             return
@@ -723,6 +748,7 @@ class Task(WithDB):
                 self._remote,
                 "GET",
                 f"/v1/tasks/{self._id}/threads",
+                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
             )
             v1threads = V1RoleThreads.model_validate(threads_dict)
             for thread in v1threads.threads:
@@ -743,6 +769,7 @@ class Task(WithDB):
                 "DELETE",
                 f"/v1/tasks/{self._id}/threads",
                 {"id": thread_id},
+                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
             )
             logger.debug("removed remote thread")
             return
@@ -769,7 +796,12 @@ class Task(WithDB):
             logger.debug(f"saving remote task {self._id}")
             try:
                 existing_task = self._remote_request(
-                    self._remote, "GET", f"/v1/tasks/{self._id}"
+                    self._remote,
+                    "GET",
+                    f"/v1/tasks/{self._id}",
+                    auth_token=(
+                        self._auth_token if hasattr(self, "_auth_token") else None
+                    ),
                 )
                 logger.debug(f"found existing task: {existing_task}")
 
@@ -790,6 +822,9 @@ class Task(WithDB):
                     "PUT",
                     f"/v1/tasks/{self._id}",
                     json_data=self.to_update_v1().model_dump(),
+                    auth_token=(
+                        self._auth_token if hasattr(self, "_auth_token") else None
+                    ),
                 )
                 logger.debug(f"updated existing task: {self._id}")
             else:
@@ -803,6 +838,9 @@ class Task(WithDB):
                     "POST",
                     "/v1/tasks",
                     json_data=self.to_v1().model_dump(),
+                    auth_token=(
+                        self._auth_token if hasattr(self, "_auth_token") else None
+                    ),
                 )
                 logger.debug(f"created new task {self._id}")
         else:
@@ -821,11 +859,17 @@ class Task(WithDB):
                 db.commit()
 
     @classmethod
-    def find(cls, remote: Optional[str] = None, **kwargs) -> List["Task"]:
+    def find(
+        cls, remote: Optional[str] = None, auth_token: Optional[str] = None, **kwargs
+    ) -> List["Task"]:
         if remote:
             logger.debug(f"finding remote tasks for: {remote}")
             remote_response = cls._remote_request(
-                remote, "GET", "/v1/tasks", json_data={**kwargs, "sort": "created_desc"}
+                remote,
+                "GET",
+                "/v1/tasks",
+                json_data={**kwargs, "sort": "created_desc"},
+                auth_token=auth_token,
             )
             tasks = V1Tasks(**remote_response)
             if remote_response is not None:
@@ -857,9 +901,17 @@ class Task(WithDB):
         self.save()
 
     @classmethod
-    def delete(cls, id: str, owner_id: str, remote: Optional[str] = None) -> None:
+    def delete(
+        cls,
+        id: str,
+        owner_id: str,
+        remote: Optional[str] = None,
+        auth_token: Optional[str] = None,
+    ) -> None:
         if remote:
-            cls._remote_request(remote, "DELETE", f"/v1/tasks/{id}")
+            cls._remote_request(
+                remote, "DELETE", f"/v1/tasks/{id}", auth_token=auth_token
+            )
         else:
             for db in cls.get_db():
                 record = (
@@ -924,7 +976,12 @@ class Task(WithDB):
         )
 
     @classmethod
-    def from_v1(cls, v1: V1Task, owner_id: Optional[str] = None) -> "Task":
+    def from_v1(
+        cls,
+        v1: V1Task,
+        owner_id: Optional[str] = None,
+        auth_token: Optional[str] = None,
+    ) -> "Task":
         obj = cls.__new__(cls)  # Create a new instance without calling __init__
 
         owner_id = owner_id if owner_id else v1.owner_id
@@ -959,7 +1016,7 @@ class Task(WithDB):
         obj._labels = v1.labels
 
         obj._episode = cls._get_episode(
-            task_id=v1.id, remote=v1.remote, id=v1.episode_id
+            task_id=v1.id, remote=v1.remote, id=v1.episode_id, auth_token=auth_token
         )
 
         if v1.threads:
@@ -969,21 +1026,26 @@ class Task(WithDB):
 
         if v1.prompts:
             obj._prompts = cls._get_prompts(
-                task_id=v1.id, remote=v1.remote, ids=v1.prompts
+                task_id=v1.id, remote=v1.remote, ids=v1.prompts, auth_token=auth_token
             )
         else:
             obj._prompts = []
 
         return obj
 
-    def refresh(self, auth_token: Optional[str] = None) -> None:
+    def refresh(self) -> None:
         logger.debug(f"refreshing task {self._id}")
         if hasattr(self, "_remote") and self._remote:
             logger.debug(f"refreshing remote task {self._id}")
             try:
 
                 remote_task = self._remote_request(
-                    self._remote, "GET", f"/v1/tasks/{self._id}", auth_token=auth_token
+                    self._remote,
+                    "GET",
+                    f"/v1/tasks/{self._id}",
+                    auth_token=(
+                        self._auth_token if hasattr(self, "_auth_token") else None
+                    ),
                 )
                 logger.debug(f"found remote task {remote_task}")
                 if remote_task:
@@ -1108,3 +1170,81 @@ class Task(WithDB):
 
         except requests.RequestException as e:
             raise e
+
+
+class TaskClient:
+    """A remote client for tasks"""
+
+    def __init__(self, base_url: str, auth_token: Optional[str] = None):
+        self.base_url = base_url
+        self.auth_token = auth_token
+
+    def _request(
+        self,
+        method: str,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        url = f"{self.base_url}{endpoint}"
+        headers = (
+            {"Authorization": f"Bearer {self.auth_token}"} if self.auth_token else {}
+        )
+        response = requests.request(
+            method, url, json=data, params=params, headers=headers
+        )
+
+        try:
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as e:
+            print(f"HTTP Error: {response.status_code} {e}")
+            print(response.text)
+            raise
+        except ValueError:
+            return response.text  # If the response isn't JSON
+
+    def create_task(self, task: V1Task) -> V1Task:
+        data = task.model_dump()
+        response = self._request("POST", "/v1/tasks", data=data)
+        return V1Task.model_validate(response)
+
+    def get_task(self, task_id: str) -> V1Task:
+        response = self._request("GET", f"/v1/tasks/{task_id}")
+        return V1Task.model_validate(response)
+
+    def update_task(self, task_id: str, task: V1TaskUpdate) -> V1Task:
+        data = task.model_dump()
+        response = self._request("PUT", f"/v1/tasks/{task_id}", data=data)
+        return V1Task.model_validate(response)
+
+    def delete_task(self, task_id: str) -> None:
+        self._request("DELETE", f"/v1/tasks/{task_id}")
+
+    def post_message(self, task_id: str, message: V1RoleMessage) -> None:
+        response = self._request(
+            "POST", f"/v1/tasks/{task_id}/msg", data=message.model_dump()
+        )
+        return
+
+    def record_action(self, task_id: str, action: V1Action) -> None:
+        data = action.model_dump()
+        response = self._request("POST", f"/v1/tasks/{task_id}/actions", data=data)
+        return None
+
+    def approve_prompt(self, task_id: str, prompt_id: str) -> None:
+        endpoint = f"/v1/tasks/{task_id}/prompts/{prompt_id}/approve"
+        self._request("POST", endpoint)
+
+    def add_prompt(self, task_id: str, prompt: V1Prompt) -> None:
+        data = prompt.model_dump()
+        response = self._request("POST", f"/v1/tasks/{task_id}/prompts", data=data)
+        return
+
+    def get_prompts(self, task_id: str) -> List[V1Prompt]:
+        response = self._request("GET", f"/v1/tasks/{task_id}/prompts")
+        return [V1Prompt.model_validate(prompt) for prompt in response]
+
+    def list_tasks(self, filters: Optional[Dict[str, Any]] = None) -> List[V1Task]:
+        response = self._request("GET", "/v1/tasks", params=filters)
+        return [V1Task.model_validate(task) for task in response]

@@ -1,9 +1,8 @@
 import random
+import socket
 import string
 import subprocess
 from typing import Optional
-import socket
-import json
 
 
 def generate_random_string(length: int = 8):
