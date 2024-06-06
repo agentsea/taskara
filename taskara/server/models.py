@@ -44,6 +44,7 @@ class V1Task(BaseModel):
     tags: List[str] = []
     labels: Dict[str, str] = {}
     episode_id: Optional[str] = None
+    auth_token: Optional[str] = None
 
 
 class V1Tasks(BaseModel):

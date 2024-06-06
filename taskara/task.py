@@ -69,6 +69,7 @@ class Task(WithDB):
         labels: Dict[str, str] = {},
         tags: List[str] = [],
         episode: Optional[Episode] = None,
+        auth_token: Optional[str] = None,
     ):
         self._id = id if id is not None else shortuuid.uuid()
         self._description = description
@@ -91,6 +92,7 @@ class Task(WithDB):
         self._tags = tags
         self._episode = episode
         self._expect_schema = expect.model_json_schema() if expect else None
+        self._auth_token = auth_token
 
         self._threads = []
         if threads:
@@ -400,9 +402,7 @@ class Task(WithDB):
                     "POST",
                     f"/v1/tasks/{self.id}/msg",
                     data,
-                    auth_token=(
-                        self._auth_token if hasattr(self, "_auth_token") else None
-                    ),
+                    auth_token=self.auth_token,
                 )
                 return
             except Exception as e:
@@ -531,9 +531,7 @@ class Task(WithDB):
                     "POST",
                     f"/v1/tasks/{self.id}/actions",
                     data,
-                    auth_token=(
-                        self._auth_token if hasattr(self, "_auth_token") else None
-                    ),
+                    auth_token=self.auth_token,
                 )
                 return event
 
@@ -556,7 +554,14 @@ class Task(WithDB):
             agent_id=agent_id,
         )
 
-    def set_auth_token(self, token: str) -> None:
+    @property
+    def auth_token(self) -> Optional[str]:
+        if hasattr(self, "_auth_token"):
+            return self._auth_token
+        return None
+
+    @auth_token.setter
+    def auth_token(self, token: str) -> None:
         self._auth_token = token
 
     def record_action_event(
@@ -572,9 +577,7 @@ class Task(WithDB):
                     "POST",
                     f"/v1/tasks/{self.id}/actions",
                     data,
-                    auth_token=(
-                        self._auth_token if hasattr(self, "_auth_token") else None
-                    ),
+                    auth_token=self.auth_token,
                 )
                 return
 
@@ -641,7 +644,7 @@ class Task(WithDB):
                     agent_id=agent_id,
                     model=model,
                 ).model_dump(),
-                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
+                auth_token=self.auth_token,
             )
             logger.debug("stored prompt")
             return resp["id"]
@@ -679,7 +682,7 @@ class Task(WithDB):
                     agent_id=prompt.agent_id,
                     model=prompt.model,
                 ).model_dump(),
-                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
+                auth_token=self.auth_token,
             )
             logger.debug("stored prompt")
             return
@@ -694,7 +697,7 @@ class Task(WithDB):
                 self._remote,
                 "POST",
                 f"/v1/tasks/{self._id}/prompts/{prompt_id}/approve",
-                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
+                auth_token=self.auth_token,
             )
             logger.debug("approved prompt")
             return
@@ -720,7 +723,7 @@ class Task(WithDB):
                 "POST",
                 f"/v1/tasks/{self._id}/threads",
                 {"name": name, "public": public, "metadata": metadata, "id": id},
-                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
+                auth_token=self.auth_token,
             )
             logger.debug("removed remote thread")
             return
@@ -748,7 +751,7 @@ class Task(WithDB):
                 self._remote,
                 "GET",
                 f"/v1/tasks/{self._id}/threads",
-                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
+                auth_token=self.auth_token,
             )
             v1threads = V1RoleThreads.model_validate(threads_dict)
             for thread in v1threads.threads:
@@ -769,7 +772,7 @@ class Task(WithDB):
                 "DELETE",
                 f"/v1/tasks/{self._id}/threads",
                 {"id": thread_id},
-                auth_token=self._auth_token if hasattr(self, "_auth_token") else None,
+                auth_token=self.auth_token,
             )
             logger.debug("removed remote thread")
             return
@@ -799,9 +802,7 @@ class Task(WithDB):
                     self._remote,
                     "GET",
                     f"/v1/tasks/{self._id}",
-                    auth_token=(
-                        self._auth_token if hasattr(self, "_auth_token") else None
-                    ),
+                    auth_token=self.auth_token,
                 )
                 logger.debug(f"found existing task: {existing_task}")
 
@@ -822,9 +823,7 @@ class Task(WithDB):
                     "PUT",
                     f"/v1/tasks/{self._id}",
                     json_data=self.to_update_v1().model_dump(),
-                    auth_token=(
-                        self._auth_token if hasattr(self, "_auth_token") else None
-                    ),
+                    auth_token=self.auth_token,
                 )
                 logger.debug(f"updated existing task: {self._id}")
             else:
@@ -838,9 +837,7 @@ class Task(WithDB):
                     "POST",
                     "/v1/tasks",
                     json_data=self.to_v1().model_dump(),
-                    auth_token=(
-                        self._auth_token if hasattr(self, "_auth_token") else None
-                    ),
+                    auth_token=self.auth_token,
                 )
                 logger.debug(f"created new task {self._id}")
         else:
@@ -961,6 +958,7 @@ class Task(WithDB):
             tags=self._tags,
             labels=self._labels,
             episode_id=episode_id,
+            auth_token=self._auth_token,
         )
 
     def to_update_v1(self) -> V1TaskUpdate:
@@ -1014,6 +1012,7 @@ class Task(WithDB):
         obj._owner_id = owner_id
         obj._tags = v1.tags
         obj._labels = v1.labels
+        obj._auth_token = auth_token
 
         obj._episode = cls._get_episode(
             task_id=v1.id, remote=v1.remote, id=v1.episode_id, auth_token=auth_token
@@ -1043,9 +1042,7 @@ class Task(WithDB):
                     self._remote,
                     "GET",
                     f"/v1/tasks/{self._id}",
-                    auth_token=(
-                        self._auth_token if hasattr(self, "_auth_token") else None
-                    ),
+                    auth_token=self.auth_token,
                 )
                 logger.debug(f"found remote task {remote_task}")
                 if remote_task:
