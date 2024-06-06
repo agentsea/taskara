@@ -1015,7 +1015,10 @@ class Task(WithDB):
         obj._auth_token = auth_token if auth_token else v1.auth_token
 
         obj._episode = cls._get_episode(
-            task_id=v1.id, remote=v1.remote, id=v1.episode_id, auth_token=auth_token
+            task_id=v1.id,
+            remote=v1.remote,
+            id=v1.episode_id,
+            auth_token=obj._auth_token,
         )
 
         if v1.threads:
@@ -1025,7 +1028,10 @@ class Task(WithDB):
 
         if v1.prompts:
             obj._prompts = cls._get_prompts(
-                task_id=v1.id, remote=v1.remote, ids=v1.prompts, auth_token=auth_token
+                task_id=v1.id,
+                remote=v1.remote,
+                ids=v1.prompts,
+                auth_token=obj._auth_token,
             )
         else:
             obj._prompts = []
