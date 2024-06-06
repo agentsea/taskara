@@ -1012,7 +1012,7 @@ class Task(WithDB):
         obj._owner_id = owner_id
         obj._tags = v1.tags
         obj._labels = v1.labels
-        obj._auth_token = auth_token
+        obj._auth_token = auth_token if auth_token else v1.auth_token
 
         obj._episode = cls._get_episode(
             task_id=v1.id, remote=v1.remote, id=v1.episode_id, auth_token=auth_token
