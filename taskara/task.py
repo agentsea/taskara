@@ -958,7 +958,7 @@ class Task(WithDB):
             tags=self._tags,
             labels=self._labels,
             episode_id=episode_id,
-            auth_token=self._auth_token,
+            auth_token=self.auth_token,
         )
 
     def to_update_v1(self) -> V1TaskUpdate:
