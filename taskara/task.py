@@ -1071,13 +1071,19 @@ class Task(WithDB):
                     self._version = v1.version
                     self._parameters = v1.parameters
                     self._episode = self._get_episode(
-                        task_id=v1.id, remote=self._remote, id=v1.episode_id
+                        task_id=v1.id,
+                        remote=self._remote,
+                        id=v1.episode_id,
+                        auth_token=self.auth_token,
                     )
                     if v1.threads:
                         self._threads = [RoleThread.from_v1(wt) for wt in v1.threads]
                     if v1.prompts:
                         self._prompts = self._get_prompts(
-                            task_id=v1.id, remote=self._remote, ids=v1.prompts
+                            task_id=v1.id,
+                            remote=self._remote,
+                            ids=v1.prompts,
+                            auth_token=self.auth_token,
                         )
                     else:
                         self._prompts = []
