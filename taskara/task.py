@@ -1,3 +1,4 @@
+import base64
 import copy
 import hashlib
 import json
@@ -5,10 +6,12 @@ import logging
 import os
 import time
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import requests
 import shortuuid
+from cryptography.fernet import Fernet
 from devicebay import V1Device, V1DeviceType
 from mllm import Prompt, V1Prompt
 from pydantic import BaseModel
@@ -106,6 +109,61 @@ class Task(WithDB):
             raise ValueError("Task must have a description or a remote task")
         self.save()
         self.ensure_thread("feed")
+
+    @classmethod
+    def get_encryption_key(cls) -> bytes:
+        # Step 1: Try to get the key from an environment variable
+        key = os.getenv("ENCRYPTION_KEY")
+        if key:
+            return key.encode()
+
+        # Define the path for the local encryption key file
+        key_path = Path.home() / ".agentsea/keys/taskara_encryption_key"
+
+        # Step 2: Try to get the key from a local file
+        try:
+            if key_path.exists():
+                with key_path.open("rb") as file:
+                    return file.read()
+        except IOError as e:
+            print(f"Failed to read the encryption key from {key_path}: {e}")
+
+        print(
+            "No encryption key found. Generating a new one. "
+            "This key will be stored in ~/.agentsea/keys/taskara_encryption_key"
+        )
+        # Step 3: Generate a new key and store it if neither of the above worked
+        key = Fernet.generate_key()
+        try:
+            key_path.parent.mkdir(
+                parents=True, exist_ok=True
+            )  # Ensure the directory exists
+            with key_path.open("wb") as file:
+                file.write(key)
+        except IOError as e:
+            print(f"Failed to write the new encryption key to {key_path}: {e}")
+            raise Exception("Failed to secure an encryption key.")
+
+        return key
+
+    def encrypt_device(self, device: Optional[V1Device]) -> Optional[str]:
+        if not device:
+            return None
+        key = self.get_encryption_key()
+        fernet = Fernet(key)
+        encrypted_private_key = fernet.encrypt(device.model_dump_json().encode())
+        return base64.b64encode(encrypted_private_key).decode()
+
+    @classmethod
+    def decrypt_device(
+        cls, encrypted_device: Optional[str] = None
+    ) -> Optional[V1Device]:
+        if not encrypted_device:
+            return None
+        key = cls.get_encryption_key()
+        fernet = Fernet(key)
+        decrypted_private_key = fernet.decrypt(base64.b64decode(encrypted_device))
+        return V1Device.model_validate_json(decrypted_private_key.decode())
 
     @classmethod
     def get(
@@ -300,10 +358,6 @@ class Task(WithDB):
         if hasattr(self, "_version"):
             version = self._version
 
-        device = None
-        if self._device:
-            device = self._device.model_dump_json()
-
         device_type = None
         if self._device_type:
             device_type = self._device_type.model_dump_json()
@@ -320,7 +374,7 @@ class Task(WithDB):
             owner_id=self._owner_id,
             description=self._description,
             max_steps=self._max_steps,
-            device=device,
+            device=self.encrypt_device(self._device),
             device_type=device_type,
             project=self._project,
             expect=expect,
@@ -354,10 +408,6 @@ class Task(WithDB):
         episodes = Episode.find(id=record.episode_id)
         episode = episodes[0]
 
-        device = None
-        if record.device:  # type: ignore
-            device = V1Device.model_validate_json(str(record.device))
-
         device_type = None
         if record.device_type:  # type: ignore
             device_type = V1DeviceType.model_validate_json(str(record.device_type))
@@ -372,7 +422,7 @@ class Task(WithDB):
         obj._description = record.description
         obj._max_steps = record.max_steps
         obj._project = record.project
-        obj._device = device
+        obj._device = cls.decrypt_device(record.device)  # type: ignore
         obj._device_type = device_type
         obj._expect_schema = expect
         obj._status = TaskStatus(record.status)
