@@ -1,18 +1,18 @@
-from typing import List, TypeVar, Type, Generic, Union, Iterator, Optional, Dict, Tuple
-from abc import ABC, abstractmethod
-import shortuuid
-import time
 import json
+import time
+from abc import ABC, abstractmethod
+from typing import Dict, Generic, Iterator, List, Optional, Tuple, Type, TypeVar, Union
 
+import shortuuid
 from pydantic import BaseModel
 
 from taskara.db.conn import WithDB
 from taskara.db.models import TrackerRecord
 from taskara.server.models import (
-    V1TrackerRuntimeConnect,
-    V1Tracker,
     V1ResourceLimits,
     V1ResourceRequests,
+    V1Tracker,
+    V1TrackerRuntimeConnect,
 )
 
 R = TypeVar("R", bound="TrackerRuntime")
@@ -415,5 +415,12 @@ class TrackerRuntime(Generic[R, C], ABC):
 
         Args:
             owner_id (Optional[str], optional): Owner id to scope it to. Defaults to None.
+        """
+        pass
+
+    @abstractmethod
+    def runtime_local_addr(self, name: str, owner_id: Optional[str] = None) -> str:
+        """
+        Returns the local address of the agent with respect to the runtime
         """
         pass
