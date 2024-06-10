@@ -49,6 +49,7 @@ class Task(WithDB):
         description: Optional[str] = None,
         max_steps: int = 30,
         owner_id: Optional[str] = None,
+        project: Optional[str] = None,
         device: Optional[V1Device] = None,
         device_type: Optional[V1DeviceType] = None,
         expect: Optional[Type[BaseModel]] = None,
@@ -75,6 +76,7 @@ class Task(WithDB):
         self._description = description
         self._max_steps = max_steps
         self._owner_id = owner_id
+        self._project = project
         self._device = device
         self._device_type = device_type
         self._status = status
@@ -175,6 +177,14 @@ class Task(WithDB):
     @owner_id.setter
     def owner_id(self, value: Optional[str]):
         self._owner_id = value
+
+    @property
+    def project(self) -> Optional[str]:
+        return self._project
+
+    @project.setter
+    def project(self, value: Optional[str]):
+        self._project = value
 
     @property
     def status(self) -> TaskStatus:
@@ -312,6 +322,7 @@ class Task(WithDB):
             max_steps=self._max_steps,
             device=device,
             device_type=device_type,
+            project=self._project,
             expect=expect,
             status=self._status.value,
             created=self._created,
@@ -360,6 +371,7 @@ class Task(WithDB):
         obj._owner_id = record.owner_id
         obj._description = record.description
         obj._max_steps = record.max_steps
+        obj._project = record.project
         obj._device = device
         obj._device_type = device_type
         obj._expect_schema = expect
@@ -955,6 +967,7 @@ class Task(WithDB):
             version=version,
             remote=remote,
             owner_id=self._owner_id,
+            project=self._project,
             tags=self._tags,
             labels=self._labels,
             episode_id=episode_id,
@@ -1010,6 +1023,7 @@ class Task(WithDB):
         obj._parameters = v1.parameters
         obj._remote = v1.remote
         obj._owner_id = owner_id
+        obj._project = v1.project
         obj._tags = v1.tags
         obj._labels = v1.labels
         obj._auth_token = auth_token if auth_token else v1.auth_token
@@ -1070,6 +1084,7 @@ class Task(WithDB):
                     self._output = v1.output
                     self._version = v1.version
                     self._parameters = v1.parameters
+                    self._project = v1.project
                     self._episode = self._get_episode(
                         task_id=v1.id,
                         remote=self._remote,
@@ -1097,6 +1112,7 @@ class Task(WithDB):
             self._max_steps = task._max_steps
             self._device = task._device
             self._device_type = task._device_type
+            self._project = task._project
             self._expect_schema = task._expect_schema
             self._status = task._status
             self._created = task._created
