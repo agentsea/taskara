@@ -1,7 +1,13 @@
+from devicebay import V1Device
 from pydantic import BaseModel
 from threadmem import RoleThread
 
 from taskara import Task
+
+
+class TestConnectConfig(BaseModel):
+    a: str
+    b: int
 
 
 # Test the thread creation functionality within the Task class
@@ -11,7 +17,11 @@ def test_create_thread():
         bar: int
 
     task = Task(
-        description="Test Task", owner_id="owner123", id="task123", expect=Expected
+        description="Test Task",
+        owner_id="owner123",
+        id="task123",
+        expect=Expected,
+        device=V1Device(type="desktop", config=TestConnectConfig(a="a", b=1)),
     )
     assert len(task.threads) == 1
 
@@ -24,6 +34,14 @@ def test_create_thread():
     new_thread = task.threads[-1]
     assert new_thread.name == "New Local Thread"
     assert new_thread.public is True
+
+    task.refresh()
+
+    found = Task.find(id=task.id)
+    assert len(found) == 1
+    print("\nfound: ", found[0].__dict__)
+    assert found[0].device.config["a"] == "a"  # type: ignore
+    assert found[0].device.config["b"] == 1  # type: ignore
 
 
 # Test posting a message to a thread within the Task class
