@@ -736,6 +736,19 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
             owner_id=owner_id,
         )
 
+    def runtime_local_addr(self, name: str, owner_id: Optional[str] = None) -> str:
+        """
+        Returns the local address of the agent with respect to the runtime
+        """
+        instances = Tracker.find(name=name, owner_id=owner_id, runtime_name=self.name())
+        if not instances:
+            raise ValueError(f"Task server '{name}' not found")
+        instance = instances[0]
+
+        return (
+            f"http://{instance.name}.{self.namespace}.svc.cluster.local:{instance.port}"
+        )
+
     def _handle_logs_with_attach(self, server_name: str, attach: bool):
         if attach:
             # Setup the signal handler to catch interrupt signals

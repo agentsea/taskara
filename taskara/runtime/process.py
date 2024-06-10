@@ -1,27 +1,22 @@
-from typing import List, Optional, Type, Union, Iterator, Dict, Tuple
-import os
-import subprocess
-import time
-import signal
 import json
 import logging
+import os
+import signal
+import subprocess
 import sys
-import urllib.request
-import urllib.parse
+import time
 import urllib.error
-
+import urllib.parse
+import urllib.request
+from typing import Dict, Iterator, List, Optional, Tuple, Type, Union
 
 import requests
 from pydantic import BaseModel
 
-
-from .base import Tracker, TrackerRuntime
-from taskara.server.models import (
-    V1ResourceLimits,
-    V1ResourceRequests,
-)
+from taskara.server.models import V1ResourceLimits, V1ResourceRequests
 from taskara.util import find_open_port
 
+from .base import Tracker, TrackerRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +322,17 @@ class ProcessTrackerRuntime(
             raise SystemError(f"Error parsing process ID: {str(e)}")
         except Exception as e:
             raise SystemError(f"An unexpected error occurred: {str(e)}")
+
+    def runtime_local_addr(self, name: str, owner_id: Optional[str] = None) -> str:
+        """
+        Returns the local address of the agent with respect to the runtime
+        """
+        instances = Tracker.find(name=name, owner_id=owner_id, runtime_name=self.name())
+        if not instances:
+            raise ValueError(f"Task server '{name}' not found")
+        instance = instances[0]
+
+        return f"http://localhost:{instance.port}"
 
     def clean(
         self,

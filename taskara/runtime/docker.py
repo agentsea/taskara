@@ -128,6 +128,15 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
             except:
                 pass
 
+    def _ensure_network_exists(self, network_name: str):
+        try:
+            self.client.networks.get(network_name)
+            logger.debug(f"Network '{network_name}' already exists.")
+        except NotFound:
+            logger.debug(f"Network '{network_name}' not found. Creating network.")
+            self.client.networks.create(network_name)
+            logger.debug(f"Network '{network_name}' created.")
+
     def run(
         self,
         name: str,
@@ -159,9 +168,11 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
 
         if not self.img:
             raise ValueError("img not found")
+
+        self._ensure_network_exists("agentsea")
         container = self.client.containers.run(
             self.img,
-            network_mode="bridge",
+            network="agentsea",
             ports={9070: port},
             environment=env_vars,
             detach=True,
@@ -178,6 +189,17 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
             port=port,
             owner_id=owner_id,
         )
+
+    def runtime_local_addr(self, name: str, owner_id: Optional[str] = None) -> str:
+        """
+        Returns the local address of the agent with respect to the runtime
+        """
+        instances = Tracker.find(name=name, owner_id=owner_id, runtime_name=self.name())
+        if not instances:
+            raise ValueError(f"Task server '{name}' not found")
+        instance = instances[0]
+
+        return f"http://{instance.name}:{instance.port}"
 
     def _handle_logs_with_attach(self, server_name: str, attach: bool):
         if attach:
