@@ -1,23 +1,23 @@
-from typing import Annotated, List
 import logging
+from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException
-from threadmem import RoleMessage, RoleThread, V1RoleThreads, V1RoleThread
 from mllm import Prompt, V1Prompt
-from skillpacks import V1ActionEvent, ActionEvent, V1Episode, Episode
+from skillpacks import ActionEvent, Episode, V1ActionEvent, V1Episode
+from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
 
 from taskara import Task, TaskStatus
+from taskara.auth.transport import get_user_dependency
 from taskara.server.models import (
-    V1TaskUpdate,
+    V1AddThread,
+    V1PostMessage,
+    V1Prompts,
+    V1RemoveThread,
     V1Task,
     V1Tasks,
+    V1TaskUpdate,
     V1UserProfile,
-    V1PostMessage,
-    V1AddThread,
-    V1RemoveThread,
-    V1Prompts,
 )
-from taskara.auth.transport import get_user_dependency
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -214,6 +214,22 @@ async def get_threads(
     for thread in task.threads:
         out.append(thread.to_v1())
     return V1RoleThreads(threads=out)
+
+@router.get("/v1/tasks/{task_id}/threads/{thread_id}", response_model=V1RoleThread)
+async def get_thread(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    thread_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    for thread in task.threads:
+        if thread.id == thread_id:
+            return thread.to_v1()
+    raise HTTPException(status_code=404, detail="Thread not found")
 
 
 @router.post("/v1/tasks/{task_id}/threads")
