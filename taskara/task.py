@@ -865,6 +865,7 @@ class Task(WithDB):
                     "GET",
                     f"/v1/tasks/{self._id}",
                     auth_token=self.auth_token,
+                    suppress_not_found=True,
                 )
                 logger.debug(f"found existing task: {existing_task}")
 
@@ -1186,6 +1187,7 @@ class Task(WithDB):
         endpoint: str,
         json_data: Optional[dict] = None,
         auth_token: Optional[str] = None,
+        suppress_not_found: bool = False,
     ) -> Any:
         url = f"{addr}{endpoint}"
         logger.debug(f"calling remote task {method} {url}")
@@ -1225,6 +1227,10 @@ class Task(WithDB):
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
+                if response.status_code == 404 and suppress_not_found:
+                    logger.debug(f"suppressing 404 not found error")
+                    raise
+
                 logger.error(f"HTTP Error: {e}")
                 logger.error(f"Status Code: {response.status_code}")
                 try:
