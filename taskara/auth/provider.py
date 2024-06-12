@@ -1,13 +1,13 @@
-from abc import ABC, abstractmethod
 import logging
 import os
-from venv import logger
-import requests
+from abc import ABC, abstractmethod
 from typing import Optional
+from venv import logger
 
+import requests
 from threadmem.server.models import V1UserProfile
-from .key import KeyProvider, default_key_provider, MockProvider
 
+from .key import KeyProvider, MockProvider, default_key_provider
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +30,10 @@ class HubAuthProvider(AuthProvider):
     def __init__(self, key_provider: Optional[KeyProvider] = None) -> None:
         if not key_provider:
             key_provider = default_key_provider()
-        self.hub_url = os.environ.get("AGENTSEA_HUB_URL")
+        self.hub_url = os.environ.get("AGENTSEA_AUTH_URL")
         if not self.hub_url:
             raise ValueError(
-                "$AGENTSEA_HUB_URL must be set to user the Hub key provider"
+                "$AGENTSEA_AUTH_URL must be set to user the Hub key provider"
             )
 
         self._key_provider = key_provider

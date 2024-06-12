@@ -10,7 +10,7 @@ from typing import Optional
 
 import yaml
 
-from .env import AGENTSEA_HUB_URL_ENV
+from .env import AGENTSEA_AUTH_URL_ENV, AGENTSEA_HUB_URL_ENV
 
 AGENTSEA_HOME = os.path.expanduser(os.environ.get("AGENTSEA_HOME", "~/.agentsea"))
 AGENTSEA_DB_DIR = os.path.expanduser(
@@ -19,9 +19,7 @@ AGENTSEA_DB_DIR = os.path.expanduser(
 AGENTSEA_LOG_DIR = os.path.expanduser(
     os.environ.get("AGENTSEA_LOG_DIR", os.path.join(AGENTSEA_HOME, "logs"))
 )
-AGENTSEA_PROC_DIR = os.path.expanduser(
-    os.environ.get("AGENTSEA_PROC_DIR", os.path.join(AGENTSEA_HOME, "proc"))
-)
+AGENTSEA_AUTH_URL = os.getenv(AGENTSEA_AUTH_URL_ENV, "https://auth.hub.agentsea.ai")
 AGENTSEA_HUB_URL = os.getenv(AGENTSEA_HUB_URL_ENV, "https://hub.agentsea.ai")
 DB_TEST = os.environ.get("AGENTSEA_DB_TEST", "false") == "true"
 DB_NAME = os.environ.get("TASKS_DB_NAME", "tasks.db")

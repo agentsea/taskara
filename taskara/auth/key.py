@@ -1,11 +1,13 @@
-from abc import abstractmethod, ABC
 import os
-import requests
+from abc import ABC, abstractmethod
 from typing import Optional
-from requests.exceptions import RequestException
 
+import requests
+from requests.exceptions import RequestException
 from threadmem.db.conn import WithDB
 from threadmem.server.models import V1UserProfile
+
+from taskara.config import AGENTSEA_AUTH_URL
 
 
 class KeyProvider(ABC):
@@ -51,11 +53,7 @@ class HubKeyProvider(KeyProvider, WithDB):
     """AgentSea Hub provider"""
 
     def __init__(self) -> None:
-        self.hub_url = os.environ.get("AGENTSEA_HUB_URL")
-        if not self.hub_url:
-            raise ValueError(
-                "$AGENTSEA_HUB_URL must be set to user the Hub key provider"
-            )
+        self.hub_url = AGENTSEA_AUTH_URL
 
     def create_key(self) -> str:
         raise NotImplementedError("create_key is not implemented")
