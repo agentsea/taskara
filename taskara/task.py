@@ -14,6 +14,7 @@ import shortuuid
 from cryptography.fernet import Fernet
 from devicebay import V1Device, V1DeviceType
 from mllm import Prompt, V1Prompt
+from PIL import Image
 from pydantic import BaseModel
 from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
@@ -447,7 +448,7 @@ class Task(WithDB):
         self,
         role: str,
         msg: str,
-        images: List[str] = [],
+        images: List[str | Image.Image] = [],
         private: bool = False,
         metadata: Optional[dict] = None,
         thread: Optional[str] = None,
