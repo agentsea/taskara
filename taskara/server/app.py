@@ -65,7 +65,7 @@ app.include_router(benchmarks_router)
 
 @app.get("/")
 async def root():
-    return {"message": "tasks4lyfe"}
+    return {"message": "A Taskara tracker"}
 
 
 @app.get("/health")

@@ -10,7 +10,7 @@
   <p align="center">
     Task management for AI agents
     <br />
-    <a href="https://github.com/agentsea/threadmem"><strong>Explore the docs »</strong></a>
+    <a href="https://docs.hub.agentsea.ai/taskara/intro"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <a href="https://github.com/agentsea/threadmem">View Demo</a>
@@ -88,6 +88,65 @@ Save the task
 task.save()
 ```
 
+## Tracker
+
+Taskara comes with a task tracker server which can be run on docker or kubernetes.
+
+Install surfkit to create a tracker
+
+```
+pip install surfkit
+```
+
+Create a tracker
+
+```
+surfkit create tracker
+```
+
+List trackers
+
+```
+surfkit list trackers
+```
+
+Get tracker logs
+
+```
+surfkit logs tracker <name>
+```
+
+Create a task
+
+```
+surfkit create task --description "Search for french ducks"
+```
+
+List tasks
+
+```
+surfkit list tasks
+```
+
+Get a task
+
+```
+surfkit get task <id>
+```
+
+## Integrations
+
+Taskara is integrated with:
+
+- [Surfkit](https://github.com/agentsea/surfkit) A platform for AI agents
+- [MLLM](https://github.com/agentsea/mllm) A prompt management, routing, and schema validation library for multimodal LLMs
+- [Skillpacks](https://github.com/agentsea/skillpacks) A library to fine tune AI agents on tasks.
+- [Threadmem](https://github.com/agentsea/threadmem) A thread management library for AI agents
+
+## Community
+
+Come join us on [Slack](https://agentsea.slack.com/join/signup)
+
 ## Backends
 
 Thread and prompt storage can be backed by:
@@ -103,4 +162,17 @@ DB_NAME=tasks
 DB_HOST=localhost
 DB_USER=postgres
 DB_PASS=abc123
+```
+
+Thread image storage by default will utilize the db, to configure bucket storage using GCS:
+
+- Create a bucket with fine grained permissions
+- Create a GCP service account JSON with permissions to write to the bucket
+
+```sh
+export THREAD_STORAGE_SA_JSON='{
+  "type": "service_account",
+  ...
+}'
+export THREAD_STORAGE_BUCKET=my-bucket
 ```

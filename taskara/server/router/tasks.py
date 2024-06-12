@@ -133,7 +133,7 @@ async def post_task_msg(
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
 
-    task.post_message(data.role, data.msg, data.images, thread=data.thread)
+    task.post_message(data.role, data.msg, data.images, thread=data.thread)  # type: ignore
     logger.debug(f"posted message to task: {task.__dict__}")
     return
 
@@ -214,6 +214,7 @@ async def get_threads(
     for thread in task.threads:
         out.append(thread.to_v1())
     return V1RoleThreads(threads=out)
+
 
 @router.get("/v1/tasks/{task_id}/threads/{thread_id}", response_model=V1RoleThread)
 async def get_thread(
