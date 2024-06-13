@@ -4305,4 +4305,4 @@ runtime = ["docker", "google-auth", "google-cloud-container", "kubernetes"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "781ad5aee6359982800f2f0a445ec91cbbb9c66f1b2af2eb4fa9686af508efe8"
+content-hash = "8a381b1d64ced7204d8e4bef01a776ebf8f8b9d079c450c3b62df52a5b09b9d1"
