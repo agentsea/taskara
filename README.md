@@ -13,7 +13,7 @@
     <a href="https://docs.hub.agentsea.ai/taskara/intro"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/agentsea/taskara">View Demo</a>
+    <a href="https://youtu.be/exoOUUwFRB8">View Demo</a>
     ·
     <a href="https://github.com/agentsea/taskara/issues">Report Bug</a>
     ·
