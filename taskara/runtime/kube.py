@@ -10,7 +10,6 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from math import log
 from typing import Dict, Iterator, List, Optional, Tuple, Type, Union
 
 from google.auth.transport.requests import Request
@@ -580,7 +579,7 @@ class KubeTrackerRuntime(TrackerRuntime["KubeTrackerRuntime", KubeConnectConfig]
 
         else:
             try:
-                subprocess.run(cmd, shell=True, check=True)
+                subprocess.run(cmd, shell=True, check=True)  # type: ignore
                 return None  # No PID to return when not in background mode
             except subprocess.CalledProcessError as e:
                 raise RuntimeError(f"Port forwarding failed: {e}")

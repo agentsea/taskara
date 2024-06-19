@@ -185,6 +185,29 @@ async def approve_prompt(
     return
 
 
+@router.post("/v1/tasks/{task_id}/prompts/{prompt_id}/fail")
+async def fail_prompt(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    prompt_id: str,
+):
+    tasks = Task.find(id=task_id, owner_id=current_user.email)
+    if not tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = tasks[0]
+
+    prompts = Prompt.find(id=prompt_id, owner_id=current_user.email)
+    if not prompts:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    prompt = prompts[0]
+
+    prompt.approved = False
+    prompt.save()
+
+    logger.debug(f"failed prompt in task: {task.__dict__}")
+    return
+
+
 @router.post("/v1/tasks/{task_id}/actions")
 async def record_action(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
