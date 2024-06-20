@@ -173,6 +173,16 @@ async def approve_prompt(
         raise HTTPException(status_code=404, detail="Task not found")
     task = tasks[0]
 
+    if prompt_id == "all":
+        prompts = Prompt.find(task_id=task_id, owner_id=current_user.email)
+        if not prompts:
+            raise HTTPException(status_code=404, detail="Prompt not found")
+        for prompt in prompts:
+            prompt.approved = True
+            prompt.save()
+            logger.debug(f"approved all prompts in task: {task.__dict__}")
+        return
+
     prompts = Prompt.find(id=prompt_id, owner_id=current_user.email)
     if not prompts:
         raise HTTPException(status_code=404, detail="Prompt not found")
