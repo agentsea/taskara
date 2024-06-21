@@ -471,7 +471,7 @@ class Task(WithDB):
         if hasattr(self, "_remote") and self._remote:
             logger.debug(f"posting msg to remote task: {self._id}")
             try:
-                data = {"msg": msg, "role": role, "images": images}
+                data = {"msg": msg, "role": role, "images": new_imgs}
                 if thread:
                     data["thread"] = thread
                 self._remote_request(
