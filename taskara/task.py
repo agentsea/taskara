@@ -24,6 +24,7 @@ from .config import GlobalConfig
 from .db.conn import WithDB
 from .db.models import TaskRecord
 from .env import HUB_API_KEY_ENV
+from .img import image_to_b64
 from .server.models import V1Prompts, V1Task, V1Tasks, V1TaskUpdate
 
 T = TypeVar("T", bound="Task")
@@ -454,6 +455,19 @@ class Task(WithDB):
         thread: Optional[str] = None,
     ) -> None:
         logger.debug(f"posting message to thread {thread}: {msg}")
+        new_imgs: List[str] = []
+        for img in images:
+            if isinstance(img, Image.Image):
+                new_imgs.append(image_to_b64(img))
+            elif isinstance(img, str):
+                if img.startswith("data:") or img.startswith("http"):
+                    new_imgs.append(img)
+                else:
+                    loaded_img = Image.open(img)
+                    new_imgs.append(image_to_b64(loaded_img))
+            else:
+                raise ValueError("unnknown image type")
+
         if hasattr(self, "_remote") and self._remote:
             logger.debug(f"posting msg to remote task: {self._id}")
             try:
