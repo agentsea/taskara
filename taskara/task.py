@@ -686,7 +686,7 @@ class Task(WithDB):
         copied_task._completed = 0.0
 
         # Assuming you may want to start with an undefined status or any other initial value
-        copied_task._status = "defined"
+        copied_task._status = TaskStatus.DEFINED
 
         # Reset version and potentially other properties that should be unique to each new task
         copied_task._version = copied_task.generate_version_hash()
