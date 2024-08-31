@@ -168,3 +168,28 @@ class V1Eval(BaseModel):
 
 class V1Evals(BaseModel):
     evals: List[V1Eval]
+
+
+class V1Flag(BaseModel):
+    type: str
+    id: str
+    flag: Dict[str, Any]
+    result: Optional[Dict[str, Any]] = None
+    created: float
+
+
+class V1BoundingBox(BaseModel):
+    """A bounding box"""
+
+    x0: int
+    x1: int
+    y0: int
+    y1: int
+
+
+class V1BoundingBoxFlag(BaseModel):
+    """A bounding box"""
+
+    img: str
+    target: str
+    bbox: V1BoundingBox

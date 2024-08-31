@@ -16,7 +16,7 @@ from devicebay import V1Device, V1DeviceType
 from mllm import Prompt, V1Prompt
 from PIL import Image
 from pydantic import BaseModel
-from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef
+from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef, V1EnvState
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
 
@@ -26,6 +26,7 @@ from .db.models import TaskRecord
 from .env import HUB_API_KEY_ENV
 from .img import image_to_b64
 from .server.models import V1Prompts, V1Task, V1Tasks, V1TaskUpdate
+from .flag import Flag
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -100,6 +101,7 @@ class Task(WithDB):
         self._episode = episode
         self._expect_schema = expect.model_json_schema() if expect else None
         self._auth_token = auth_token
+        self._flags: List[Flag] = []
 
         self._threads = []
         if threads:
@@ -247,6 +249,10 @@ class Task(WithDB):
         self._project = value
 
     @property
+    def episode(self) -> Optional[Episode]:
+        return self._episode
+
+    @property
     def status(self) -> TaskStatus:
         return self._status
 
@@ -349,6 +355,13 @@ class Task(WithDB):
     @tags.setter
     def tags(self, value: List[str]):
         self._tags = value
+
+    @property
+    def flags(self) -> List[Flag]:
+        return self._flags
+
+    def flag(self, flag: Flag) -> None:
+        self._flags.append(flag)
 
     def generate_version_hash(self) -> str:
         task_data = json.dumps(self.to_v1().model_dump(), sort_keys=True)
@@ -572,10 +585,12 @@ class Task(WithDB):
 
     def record_action(
         self,
-        prompt: Prompt | str,
+        state: V1EnvState,
         action: V1Action,
         tool: V1ToolRef,
         result: Optional[Any] = None,
+        end_state: Optional[V1EnvState] = None,
+        prompt: Optional[Prompt | str] = None,
         namespace: str = "default",
         metadata: dict = {},
         owner_id: Optional[str] = None,
@@ -592,10 +607,12 @@ class Task(WithDB):
                     prompt = Prompt.find(id=prompt)[0]
 
                 event = ActionEvent(
+                    state=state,
                     prompt=prompt,
                     action=action,
                     tool=tool,
                     result=result,
+                    end_state=end_state,
                     namespace=namespace,
                     metadata=metadata,
                     owner_id=owner_id,
@@ -620,10 +637,12 @@ class Task(WithDB):
             raise ValueError("episode not set")
 
         return self._episode.record(
+            state=state,
             prompt=prompt,
             action=action,
             tool=tool,
             result=result,
+            end_state=end_state,
             namespace=namespace,
             metadata=metadata,
             owner_id=owner_id,

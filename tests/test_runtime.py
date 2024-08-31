@@ -4,7 +4,7 @@ import time
 from mllm import Prompt, RoleMessage, RoleThread
 from namesgenerator import get_random_name
 from openai import BaseModel
-from skillpacks import ActionEvent, V1Action
+from skillpacks import ActionEvent, V1Action, V1EnvState
 from toolfuse.models import V1ToolRef
 
 from taskara import Benchmark, Task, TaskTemplate, V1Benchmark, V1Task, V1TaskTemplate
@@ -149,9 +149,10 @@ def test_process_tracker_runtime():
 
         # Store an action event
         action_event = ActionEvent(
-            prompt=prompt,
+            state=V1EnvState(image="test"),
             action=V1Action(name="test", parameters={}),
             tool=V1ToolRef(module="test", type="test"),
+            prompt=prompt,
         )
 
         status, _ = server.call(

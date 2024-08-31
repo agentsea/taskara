@@ -3,7 +3,8 @@ from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from mllm import Prompt, V1Prompt
-from skillpacks import ActionEvent, Episode, V1ActionEvent, V1Episode
+from skillpacks import ActionEvent, Episode
+from skillpacks.server.models import V1ActionEvents, V1ActionEvent, V1Episode
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
 
 from taskara import Task, TaskStatus
@@ -230,6 +231,100 @@ async def record_action(
     task = task[0]
 
     task.record_action_event(ActionEvent.from_v1(data))
+    return
+
+
+@router.get("/v1/tasks/{task_id}/actions", response_model=V1ActionEvents)
+async def get_actions(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    if not task.episode:
+        raise HTTPException(status_code=404, detail="Task episode not found")
+
+    return V1ActionEvents(events=[action.to_v1() for action in task.episode.actions])
+
+
+@router.post("/v1/tasks/{task_id}/actions/{action_id}/approve")
+async def approve_action(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    action_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    if not task.episode:
+        raise HTTPException(status_code=404, detail="Task episode not found")
+
+    task.episode.approve_one(action_id)
+    task.save()
+
+    return
+
+
+@router.post("/v1/tasks/{task_id}/approve_actions")
+async def approve_all_actions(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    if not task.episode:
+        raise HTTPException(status_code=404, detail="Task episode not found")
+
+    task.episode.approve_all()
+    task.save()
+
+    return
+
+
+@router.post("/v1/tasks/{task_id}/actions/{action_id}/fail")
+async def fail_action(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    action_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    if not task.episode:
+        raise HTTPException(status_code=404, detail="Task episode not found")
+
+    task.episode.fail_one(action_id)
+    task.save()
+
+    return
+
+
+@router.post("/v1/tasks/{task_id}/fail_actions")
+async def fail_all_actions(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    if not task.episode:
+        raise HTTPException(status_code=404, detail="Task episode not found")
+
+    task.episode.fail_all()
+    task.save()
+
     return
 
 
