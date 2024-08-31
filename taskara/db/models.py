@@ -1,6 +1,6 @@
 import time
 
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Table
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -121,3 +121,13 @@ class TrackerRecord(Base):
     labels = Column(String, nullable=True)
     created = Column(Float, default=time.time)
     updated = Column(Float, default=time.time)
+
+
+class FlagRecord(Base):
+    __tablename__ = "flags"
+
+    id = Column(String, primary_key=True)
+    type = Column(String)
+    flag = Column(Text)
+    result = Column(Text, nullable=True)
+    created = Column(Float, default=time.time)
