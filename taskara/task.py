@@ -45,6 +45,18 @@ class TaskStatus(Enum):
     CANCELING = "canceling"
     CANCELED = "canceled"
     REVIEW = "review"
+    TIMED_OUT = "timed out"
+
+
+FINAL_STATUSES = [
+    TaskStatus.COMPLETED,
+    TaskStatus.FAILED,
+    TaskStatus.ERROR,
+    TaskStatus.CANCELED,
+    TaskStatus.CANCELING,
+    TaskStatus.REVIEW,
+    TaskStatus.TIMED_OUT,
+]
 
 
 class Task(WithDB):
@@ -73,6 +85,7 @@ class Task(WithDB):
         parameters: Dict[str, Any] = {},
         remote: Optional[str] = None,
         version: Optional[str] = None,
+        parent_id: Optional[str] = None,
         labels: Dict[str, str] = {},
         tags: List[str] = [],
         episode: Optional[Episode] = None,
@@ -96,6 +109,7 @@ class Task(WithDB):
         self._parameters = parameters
         self._remote = remote
         self._prompts = prompts
+        self._parent_id = parent_id
         self._labels = labels
         self._tags = tags
         self._episode = episode
@@ -349,6 +363,14 @@ class Task(WithDB):
         self._labels = value
 
     @property
+    def parent_id(self) -> Optional[str]:
+        return self._parent_id
+
+    @parent_id.setter
+    def parent_id(self, value: Optional[str]):
+        self._parent_id = value
+
+    @property
     def tags(self) -> List[str]:
         return self._tags
 
@@ -362,6 +384,9 @@ class Task(WithDB):
 
     def flag(self, flag: Flag) -> None:
         self._flags.append(flag)
+
+    def is_done(self) -> bool:
+        return self._status in FINAL_STATUSES
 
     def generate_version_hash(self) -> str:
         task_data = json.dumps(self.to_v1().model_dump(), sort_keys=True)
@@ -401,6 +426,7 @@ class Task(WithDB):
             assigned_type=self._assigned_type,
             error=self._error,
             output=self._output,
+            parent_id=self._parent_id,
             threads=json.dumps([t._id for t in self._threads]),
             prompts=json.dumps([p._id for p in self._prompts]),
             parameters=json.dumps(self._parameters),
@@ -450,6 +476,7 @@ class Task(WithDB):
         obj._output = record.output
         obj._threads = threads
         obj._prompts = prompts
+        obj._parent_id = record.parent_id
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
@@ -1052,6 +1079,7 @@ class Task(WithDB):
             version=version,
             remote=remote,
             owner_id=self._owner_id,
+            parent_id=self._parent_id,
             project=self._project,
             tags=self._tags,
             labels=self._labels,
@@ -1106,6 +1134,7 @@ class Task(WithDB):
         obj._version = v1.version
         obj._remote = v1.remote
         obj._parameters = v1.parameters
+        obj._parent_id = v1.parent_id
         obj._remote = v1.remote
         obj._owner_id = owner_id
         obj._project = v1.project
@@ -1170,6 +1199,7 @@ class Task(WithDB):
                     self._version = v1.version
                     self._parameters = v1.parameters
                     self._project = v1.project
+                    self._parent_id = v1.parent_id
                     self._episode = self._get_episode(
                         task_id=v1.id,
                         remote=self._remote,
@@ -1209,6 +1239,7 @@ class Task(WithDB):
             self._output = task._output
             self._version = task._version
             self._parameters = task._parameters
+            self._parent_id = task._parent_id
             self._threads = task._threads
             self._prompts = task._prompts
             logger.debug(f"refreshed local task {self._id}")

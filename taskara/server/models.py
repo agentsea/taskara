@@ -42,6 +42,7 @@ class V1Task(BaseModel):
     remote: Optional[str] = None
     owner_id: Optional[str] = None
     project: Optional[str] = None
+    parent_id: Optional[str] = None
     tags: List[str] = []
     labels: Dict[str, str] = {}
     episode_id: Optional[str] = None

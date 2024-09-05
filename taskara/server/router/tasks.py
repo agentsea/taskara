@@ -270,6 +270,26 @@ async def approve_action(
     return
 
 
+@router.post("/v1/tasks/{task_id}/actions/{action_id}/approve_prior")
+async def approve_prior_actions(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    action_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    if not task.episode:
+        raise HTTPException(status_code=404, detail="Task episode not found")
+
+    task.episode.approve_prior(action_id)
+    task.save()
+
+    return
+
+
 @router.post("/v1/tasks/{task_id}/approve_actions")
 async def approve_all_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
