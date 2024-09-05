@@ -739,6 +739,24 @@ class Task(WithDB):
 
         return copied_task
 
+    def wait_for_done(
+        self, timeout: int = 1200, print_status: bool = True, sleep: int = 1
+    ) -> None:
+        """
+        Waits for the task to complete.
+        """
+        start = time.time()
+
+        while not self.is_done():
+            if print_status:
+                print("task status: ", self.status)
+            time.sleep(sleep)
+            self.refresh()
+            if time.time() > start + timeout:
+                raise TimeoutError(
+                    f"Task {self._id} did not complete within {timeout} seconds."
+                )
+
     def store_prompt(
         self,
         thread: RoleThread,
