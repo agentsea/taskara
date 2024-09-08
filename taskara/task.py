@@ -1052,6 +1052,9 @@ class Task(WithDB):
             for db in cls.get_db():
                 query = db.query(TaskRecord)
 
+                # Apply task-specific filters from kwargs (e.g., owner_id)
+                query = query.filter_by(**kwargs)
+
                 # Handle tag filtering if tags are provided
                 if tags:
                     query = query.join(TaskRecord.tags).filter(TagRecord.tag.in_(tags))
@@ -1063,10 +1066,8 @@ class Task(WithDB):
                             LabelRecord.key == key, LabelRecord.value == value
                         )
 
-                # Apply other filters and return tasks sorted by creation date
-                records = (
-                    query.filter_by(**kwargs).order_by(TaskRecord.created.desc()).all()
-                )
+                # Apply sorting by creation date and retrieve the records
+                records = query.order_by(TaskRecord.created.desc()).all()
 
                 return [cls.from_record(record) for record in records]
 

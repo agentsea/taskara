@@ -1,5 +1,6 @@
 import logging
-from typing import Annotated, Optional, Dict, List
+from typing import Annotated, Optional, List
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from mllm import Prompt, V1Prompt
@@ -68,7 +69,7 @@ async def create_task(
 async def get_tasks(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     tags: Optional[List[str]] = Query(None),
-    labels: Optional[Dict[str, str]] = Body(None),  # Use Body() instead of Query()
+    labels: Optional[str] = Query(None),
     assigned_to: Optional[str] = Query(None),
     assigned_type: Optional[str] = Query(None),
     device: Optional[str] = Query(None),
@@ -91,7 +92,9 @@ async def get_tasks(
     if device_type:
         filter_kwargs["device_type"] = device_type
 
-    tasks = Task.find(**filter_kwargs, tags=tags, labels=labels)
+    labels_dict = json.loads(labels) if labels else None
+
+    tasks = Task.find(**filter_kwargs, tags=tags, labels=labels_dict)
     return V1Tasks(tasks=[task.to_v1() for task in tasks])
 
 
