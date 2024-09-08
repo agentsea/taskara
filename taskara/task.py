@@ -22,7 +22,7 @@ from threadmem.server.models import V1RoleMessage
 
 from .config import GlobalConfig
 from .db.conn import WithDB
-from .db.models import TaskRecord
+from .db.models import TaskRecord, LabelRecord, TagRecord
 from .env import HUB_API_KEY_ENV
 from .img import image_to_b64
 from .server.models import V1Prompts, V1Task, V1Tasks, V1TaskUpdate
@@ -409,7 +409,8 @@ class Task(WithDB):
         if not hasattr(self, "_episode") or not self._episode:
             raise ValueError("episode not set")
 
-        return TaskRecord(
+        # Create the TaskRecord object without tags/labels initially
+        task_record = TaskRecord(
             id=self._id,
             owner_id=self._owner_id,
             description=self._description,
@@ -431,10 +432,20 @@ class Task(WithDB):
             prompts=json.dumps([p._id for p in self._prompts]),
             parameters=json.dumps(self._parameters),
             version=version,
-            tags=json.dumps(self.tags),
-            labels=json.dumps(self.labels),
             episode_id=self._episode.id,
         )
+
+        # Attach tags
+        if hasattr(self, "_tags"):
+            task_record.tags = [TagRecord(tag=tag) for tag in self._tags]
+
+        # Attach labels
+        if hasattr(self, "_labels"):
+            task_record.labels = [
+                LabelRecord(key=key, value=value) for key, value in self._labels.items()
+            ]
+
+        return task_record
 
     @classmethod
     def from_record(cls, record: TaskRecord) -> "Task":
@@ -480,9 +491,15 @@ class Task(WithDB):
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
-        obj._tags = json.loads(str(record.tags))
-        obj._labels = json.loads(str(record.labels))
+
+        # Load tags
+        obj._tags = [tag.tag for tag in record.tags]
+
+        # Load labels
+        obj._labels = {label.key: label.value for label in record.labels}
+
         obj._episode = episode
+
         return obj
 
     def post_message(
@@ -999,7 +1016,12 @@ class Task(WithDB):
 
     @classmethod
     def find(
-        cls, remote: Optional[str] = None, auth_token: Optional[str] = None, **kwargs
+        cls,
+        remote: Optional[str] = None,
+        auth_token: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        labels: Optional[Dict[str, str]] = None,
+        **kwargs,
     ) -> List["Task"]:
         if remote:
             logger.debug(f"finding remote tasks for: {remote}")
@@ -1007,7 +1029,12 @@ class Task(WithDB):
                 remote,
                 "GET",
                 "/v1/tasks",
-                json_data={**kwargs, "sort": "created_desc"},
+                json_data={
+                    **kwargs,
+                    "sort": "created_desc",
+                    "tags": tags,
+                    "labels": labels,
+                },
                 auth_token=auth_token,
             )
             tasks = V1Tasks(**remote_response)
@@ -1023,13 +1050,27 @@ class Task(WithDB):
                 return []
         else:
             for db in cls.get_db():
-                records = (
-                    db.query(TaskRecord)
-                    .filter_by(**kwargs)
-                    .order_by(TaskRecord.created.desc())
-                    .all()
-                )
+                query = db.query(TaskRecord)
+
+                # Apply task-specific filters from kwargs (e.g., owner_id)
+                query = query.filter_by(**kwargs)
+
+                # Handle tag filtering if tags are provided
+                if tags:
+                    query = query.join(TaskRecord.tags).filter(TagRecord.tag.in_(tags))
+
+                # Handle label filtering if labels are provided
+                if labels:
+                    for key, value in labels.items():
+                        query = query.join(TaskRecord.labels).filter(
+                            LabelRecord.key == key, LabelRecord.value == value
+                        )
+
+                # Apply sorting by creation date and retrieve the records
+                records = query.order_by(TaskRecord.created.desc()).all()
+
                 return [cls.from_record(record) for record in records]
+
             raise ValueError("No session")
 
     def update(self, **kwargs) -> None:

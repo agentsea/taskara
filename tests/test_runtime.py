@@ -1,5 +1,6 @@
 import json
 import time
+import urllib.parse
 
 from mllm import Prompt, RoleMessage, RoleThread
 from namesgenerator import get_random_name
@@ -41,22 +42,30 @@ def test_process_tracker_runtime():
         task_data = {
             "description": "Search for french ducks",
             "assigned_to": "tom@myspace.com",
+            "labels": {"test": "true"},  # Labels passed in task creation
         }
         status, text = server.call(path="/v1/tasks", method="POST", data=task_data)
         print("status: ", status)
         print("task created: ", text)
         assert status == 200
+
         task = V1Task.model_validate(json.loads(text))
         assert task.description == "Search for french ducks"
         assert task.owner_id == "tom@myspace.com"
         task_id = task.id
         time.sleep(1)
 
-        # Get tasks
-        status, text = server.call(path="/v1/tasks", method="GET")
+        # Fetch the task with query parameters and labels passed as a JSON string
+        labels_query = json.dumps({"test": "true"})  # Encode labels as JSON string
+        encoded_labels = urllib.parse.quote(labels_query)
+
+        status, text = server.call(
+            path=f"/v1/tasks?labels={encoded_labels}", method="GET"
+        )
         print("status: ", status)
         print("tasks fetched: ", text)
         assert status == 200
+
         tasks = V1Tasks.model_validate(json.loads(text))
         assert any(t.id == task_id for t in tasks.tasks)
 

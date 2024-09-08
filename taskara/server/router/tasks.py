@@ -1,11 +1,14 @@
 import logging
-from typing import Annotated, List
+from typing import Annotated, Optional, List
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from mllm import Prompt, V1Prompt
 from skillpacks import ActionEvent, Episode
 from skillpacks.server.models import V1ActionEvents, V1ActionEvent, V1Episode
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
+from fastapi import Query, Depends, Body
+from fastapi.routing import APIRouter
 
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
@@ -64,9 +67,34 @@ async def create_task(
 
 @router.get("/v1/tasks", response_model=V1Tasks)
 async def get_tasks(
-    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())]
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    tags: Optional[List[str]] = Query(None),
+    labels: Optional[str] = Query(None),
+    assigned_to: Optional[str] = Query(None),
+    assigned_type: Optional[str] = Query(None),
+    device: Optional[str] = Query(None),
+    device_type: Optional[str] = Query(None),
+    parent_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
 ):
-    tasks = Task.find(owner_id=current_user.email)
+    filter_kwargs = {"owner_id": current_user.email}
+
+    if assigned_to:
+        filter_kwargs["assigned_to"] = assigned_to
+    if assigned_type:
+        filter_kwargs["assigned_type"] = assigned_type
+    if parent_id:
+        filter_kwargs["parent_id"] = parent_id
+    if status:
+        filter_kwargs["status"] = status
+    if device:
+        filter_kwargs["device"] = device
+    if device_type:
+        filter_kwargs["device_type"] = device_type
+
+    labels_dict = json.loads(labels) if labels else None
+
+    tasks = Task.find(**filter_kwargs, tags=tags, labels=labels_dict)
     return V1Tasks(tasks=[task.to_v1() for task in tasks])
 
 

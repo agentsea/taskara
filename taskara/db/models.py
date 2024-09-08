@@ -1,7 +1,8 @@
 import time
+import shortuuid
 
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Table, Text
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy import Table, Column, ForeignKey, String, Integer, Float, Text, Boolean
+from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
 
@@ -20,6 +21,38 @@ eval_task_association = Table(
     Column("eval_id", String, ForeignKey("evals.id"), primary_key=True),
     Column("task_id", String, ForeignKey("tasks.id"), primary_key=True),
 )
+
+
+# Association table for many-to-many between tasks and tags
+task_tag_association = Table(
+    "task_tag_association",
+    Base.metadata,
+    Column("task_id", String, ForeignKey("tasks.id"), primary_key=True),
+    Column("tag_id", String, ForeignKey("tags.id"), primary_key=True),
+)
+
+# Association table for many-to-many between tasks and labels
+task_label_association = Table(
+    "task_label_association",
+    Base.metadata,
+    Column("task_id", String, ForeignKey("tasks.id"), primary_key=True),
+    Column("label_id", String, ForeignKey("labels.id"), primary_key=True),
+)
+
+
+class TagRecord(Base):
+    __tablename__ = "tags"
+
+    id = Column(String, primary_key=True, default=lambda: shortuuid.uuid())
+    tag = Column(String, unique=True, nullable=False)
+
+
+class LabelRecord(Base):
+    __tablename__ = "labels"
+
+    id = Column(String, primary_key=True, default=lambda: shortuuid.uuid())
+    key = Column(String, nullable=False)
+    value = Column(String, nullable=False)
 
 
 class TaskRecord(Base):
@@ -46,9 +79,12 @@ class TaskRecord(Base):
     parent_id = Column(String, nullable=True)
     parameters = Column(String, nullable=True)
     version = Column(String, nullable=True)
-    tags = Column(String, nullable=True)
-    labels = Column(String, nullable=True)
     episode_id = Column(String, nullable=True)
+
+    tags = relationship("TagRecord", secondary=task_tag_association, backref="tasks")
+    labels = relationship(
+        "LabelRecord", secondary=task_label_association, backref="tasks"
+    )
 
 
 class TaskTemplateRecord(Base):
