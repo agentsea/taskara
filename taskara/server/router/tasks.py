@@ -1,14 +1,16 @@
 import logging
 from typing import Annotated, Optional, List
 import json
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from mllm import Prompt, V1Prompt
 from skillpacks import ActionEvent, Episode
 from skillpacks.server.models import V1ActionEvents, V1ActionEvent, V1Episode
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
-from fastapi import Query, Depends, Body
+from fastapi import Query, Depends
 from fastapi.routing import APIRouter
+import shortuuid
 
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
@@ -21,6 +23,9 @@ from taskara.server.models import (
     V1Tasks,
     V1TaskUpdate,
     V1UserProfile,
+    V1CreateReview,
+    V1Review,
+    ReviewerType,
 )
 
 router = APIRouter()
@@ -145,7 +150,40 @@ async def update_task(
         task.output = data.output
     if data.completed:
         task.completed = data.completed
+    if data.set_labels:
+        for key, value in data.set_labels.items():
+            task.labels[key] = value
+
     logger.debug(f"saving task: {task.__dict__}")
+    task.save()
+    return task.to_v1()
+
+
+@router.put("/v1/tasks/{task_id}/review", response_model=V1Task)
+async def review_task(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    data: V1CreateReview,
+):
+    logger.debug(f"adding review: {data}")
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    logger.debug(f"found task: {task.__dict__}")
+    review = V1Review(
+        id=shortuuid.uuid(),
+        reviewer=data.reviewer or current_user.email,  # type: ignore
+        success=data.success,
+        reviewer_type=data.reviewer_type or ReviewerType.HUMAN,
+        created=time.time(),
+        reason=data.reason,
+    )
+
+    task._reviews.append(review)
+
+    logger.debug(f"saving review {review.id} to task")
     task.save()
     return task.to_v1()
 
