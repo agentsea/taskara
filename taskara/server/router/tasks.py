@@ -176,7 +176,7 @@ async def review_task(
         id=shortuuid.uuid(),
         reviewer=data.reviewer or current_user.email,  # type: ignore
         success=data.success,
-        reviewer_type=data.reviewer_type or ReviewerType.HUMAN,
+        reviewer_type=data.reviewer_type or ReviewerType.HUMAN.value,
         created=time.time(),
         reason=data.reason,
     )

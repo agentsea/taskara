@@ -12,7 +12,7 @@ from threadmem.server.models import V1RoleThread
 
 class ReviewerType(Enum):
     HUMAN = "human"
-    AGENT = "agent"
+    BOT = "bot"
 
 
 class V1Review(BaseModel):
@@ -21,7 +21,7 @@ class V1Review(BaseModel):
     id: str
     reviewer: str
     success: bool
-    reviewer_type: ReviewerType = ReviewerType.HUMAN
+    reviewer_type: str = ReviewerType.HUMAN.value
     created: float
     updated: Optional[float] = None
     reason: Optional[str] = None
@@ -29,7 +29,7 @@ class V1Review(BaseModel):
 
 class V1CreateReview(BaseModel):
     success: bool
-    reviewer_type: ReviewerType
+    reviewer_type: str = ReviewerType.HUMAN.value
     reason: Optional[str] = None
     reviewer: Optional[str] = None
 
