@@ -1,5 +1,6 @@
 import time
 from typing import Any, Dict, List, Optional
+from enum import Enum
 
 import shortuuid
 from devicebay import V1Device, V1DeviceType
@@ -7,6 +8,30 @@ from devicebay.models import V1Device
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
 from threadmem.server.models import V1RoleThread
+
+
+class ReviewerType(Enum):
+    HUMAN = "human"
+    BOT = "bot"
+
+
+class V1Review(BaseModel):
+    """Review of a task"""
+
+    id: str
+    reviewer: str
+    success: bool
+    reviewer_type: str = ReviewerType.HUMAN.value
+    created: float
+    updated: Optional[float] = None
+    reason: Optional[str] = None
+
+
+class V1CreateReview(BaseModel):
+    success: bool
+    reviewer_type: str = ReviewerType.HUMAN.value
+    reason: Optional[str] = None
+    reviewer: Optional[str] = None
 
 
 class V1TaskUpdate(BaseModel):
@@ -18,6 +43,7 @@ class V1TaskUpdate(BaseModel):
     assigned_to: Optional[str] = None
     completed: Optional[float] = None
     version: Optional[str] = None
+    set_labels: Optional[Dict[str, str]] = None
 
 
 class V1Task(BaseModel):

@@ -25,7 +25,7 @@ from .db.conn import WithDB
 from .db.models import TaskRecord, LabelRecord, TagRecord
 from .env import HUB_API_KEY_ENV
 from .img import image_to_b64
-from .server.models import V1Prompts, V1Task, V1Tasks, V1TaskUpdate
+from .server.models import V1Prompts, V1Task, V1Tasks, V1TaskUpdate, V1Review
 from .flag import Flag
 
 T = TypeVar("T", bound="Task")
@@ -38,23 +38,20 @@ class TaskStatus(Enum):
     DEFINED = "defined"
     CREATED = "created"
     IN_PROGRESS = "in progress"
-    COMPLETED = "completed"
+    FINISHED = "finished"
     FAILED = "failed"
     ERROR = "error"
     WAITING = "waiting"
     CANCELING = "canceling"
     CANCELED = "canceled"
-    REVIEW = "review"
     TIMED_OUT = "timed out"
 
 
 FINAL_STATUSES = [
-    TaskStatus.COMPLETED,
     TaskStatus.FAILED,
     TaskStatus.ERROR,
     TaskStatus.CANCELED,
     TaskStatus.CANCELING,
-    TaskStatus.REVIEW,
     TaskStatus.TIMED_OUT,
 ]
 
@@ -80,6 +77,7 @@ class Task(WithDB):
         prompts: List[Prompt] = [],
         assigned_to: Optional[str] = None,
         assigned_type: Optional[str] = None,
+        reviews: List[V1Review] = [],
         error: Optional[str] = None,
         output: Optional[str] = None,
         parameters: Dict[str, Any] = {},
@@ -107,6 +105,7 @@ class Task(WithDB):
         self._error = error
         self._output = output
         self._parameters = parameters
+        self._reviews = reviews
         self._remote = remote
         self._prompts = prompts
         self._parent_id = parent_id
@@ -253,6 +252,14 @@ class Task(WithDB):
     @owner_id.setter
     def owner_id(self, value: Optional[str]):
         self._owner_id = value
+
+    @property
+    def reviews(self) -> List[V1Review]:
+        return self._reviews
+
+    @reviews.setter
+    def reviews(self, value: List[V1Review]):
+        self._reviews = value
 
     @property
     def project(self) -> Optional[str]:
@@ -419,6 +426,7 @@ class Task(WithDB):
             device_type=device_type,
             project=self._project,
             expect=expect,
+            reviews=json.dumps([r.model_dump() for r in self._reviews]),
             status=self._status.value,
             created=self._created,
             started=self._started,
@@ -455,6 +463,9 @@ class Task(WithDB):
         prompt_ids = json.loads(str(record.prompts))
         prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
+        review_lis = json.loads(str(record.reviews))
+        reviews = [V1Review.model_validate(review) for review in review_lis]
+
         parameters = json.loads(str(record.parameters))
 
         episodes = Episode.find(id=record.episode_id)
@@ -477,6 +488,7 @@ class Task(WithDB):
         obj._device = cls.decrypt_device(record.device)  # type: ignore
         obj._device_type = device_type
         obj._expect_schema = expect
+        obj._reviews = reviews
         obj._status = TaskStatus(record.status)
         obj._created = record.created
         obj._started = record.started

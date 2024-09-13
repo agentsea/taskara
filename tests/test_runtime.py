@@ -19,6 +19,7 @@ from taskara.server.models import (
     V1Evals,
     V1Tasks,
     V1TaskTemplate,
+    V1CreateReview,
 )
 
 
@@ -81,6 +82,7 @@ def test_process_tracker_runtime():
         update_data = {
             "description": "Search for german ducks",
             "status": "in progress",
+            "set_labels": {"test_set": "true"},
         }
         status, text = server.call(
             path=f"/v1/tasks/{task_id}", method="PUT", data=update_data
@@ -154,6 +156,16 @@ def test_process_tracker_runtime():
             path=f"/v1/tasks/{task_id}/prompts/{prompt_id}/approve", method="POST"
         )
         print("approve prompt status: ", status)
+        assert status == 200
+
+        # Write a review
+        review = V1CreateReview(success=True, reason="test")
+        status, _ = server.call(
+            path=f"/v1/tasks/{task_id}/review",
+            method="PUT",
+            data=review.model_dump(),
+        )
+        print("store action status: ", status)
         assert status == 200
 
         # Store an action event
