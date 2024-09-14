@@ -159,7 +159,7 @@ def test_process_tracker_runtime():
         assert status == 200
 
         # Write a review
-        review = V1CreateReview(success=True, reason="test")
+        review = V1CreateReview(approved=True, reason="test")
         status, _ = server.call(
             path=f"/v1/tasks/{task_id}/review",
             method="PUT",

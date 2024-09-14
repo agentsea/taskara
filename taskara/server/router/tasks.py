@@ -345,10 +345,16 @@ async def approve_action(
     if not review.reviewer:
         review.reviewer = current_user.email
 
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
     task.episode.approve_one(
         action_id,
         reviewer=review.reviewer,  # type: ignore
-        reviewer_type=review.reviewer_type,
+        reviewer_type=reviewer_type,
         reason=review.reason,
     )
     task.save()
@@ -374,8 +380,14 @@ async def approve_prior_actions(
     if not review.reviewer:
         review.reviewer = current_user.email
 
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
     task.episode.approve_prior(
-        action_id, reviewer=review.reviewer, reviewer_type=review.reviewer_type  # type: ignore
+        action_id, reviewer=review.reviewer, reviewer_type=reviewer_type  # type: ignore
     )
     task.save()
 
@@ -396,7 +408,13 @@ async def approve_all_actions(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.approve_all(reviewer=review.reviewer, reviewer_type=review.reviewer_type)  # type: ignore
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    task.episode.approve_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
     task.save()
 
     return
@@ -420,10 +438,16 @@ async def fail_action(
     if not review.reviewer:
         review.reviewer = current_user.email
 
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
     task.episode.fail_one(
         action_id,
         reviewer=review.reviewer,  # type: ignore
-        reviewer_type=review.reviewer_type,
+        reviewer_type=reviewer_type,
         reason=review.reason,
     )
     task.save()
@@ -448,7 +472,13 @@ async def fail_all_actions(
     if not review.reviewer:
         review.reviewer = current_user.email
 
-    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=review.reviewer_type)  # type: ignore
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
     task.save()
 
     return
