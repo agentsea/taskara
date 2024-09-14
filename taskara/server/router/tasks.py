@@ -6,7 +6,13 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 from mllm import Prompt, V1Prompt
 from skillpacks import ActionEvent, Episode
-from skillpacks.server.models import V1ActionEvents, V1ActionEvent, V1Episode
+from skillpacks.server.models import (
+    V1ActionEvents,
+    V1ActionEvent,
+    V1Episode,
+    ReviewerType,
+    V1Review,
+)
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
 from fastapi import Query, Depends
 from fastapi.routing import APIRouter
@@ -24,8 +30,7 @@ from taskara.server.models import (
     V1TaskUpdate,
     V1UserProfile,
     V1CreateReview,
-    V1Review,
-    ReviewerType,
+    V1ReviewMany,
 )
 
 router = APIRouter()
@@ -172,15 +177,21 @@ async def review_task(
     task = task[0]
 
     logger.debug(f"found task: {task.__dict__}")
+    reviewer_type = data.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    # Create review
     review = V1Review(
         id=shortuuid.uuid(),
         reviewer=data.reviewer or current_user.email,  # type: ignore
-        success=data.success,
-        reviewer_type=data.reviewer_type or ReviewerType.HUMAN.value,
+        approved=data.approved,
+        reviewer_type=reviewer_type,
         created=time.time(),
         reason=data.reason,
     )
-
     task._reviews.append(review)
 
     logger.debug(f"saving review {review.id} to task")
@@ -321,6 +332,7 @@ async def approve_action(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
+    review: V1CreateReview,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -330,7 +342,15 @@ async def approve_action(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.approve_one(action_id)
+    if not review.reviewer:
+        review.reviewer = current_user.email
+
+    task.episode.approve_one(
+        action_id,
+        reviewer=review.reviewer,  # type: ignore
+        reviewer_type=review.reviewer_type,
+        reason=review.reason,
+    )
     task.save()
 
     return
@@ -341,6 +361,7 @@ async def approve_prior_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
+    review: V1ReviewMany,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -350,7 +371,12 @@ async def approve_prior_actions(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.approve_prior(action_id)
+    if not review.reviewer:
+        review.reviewer = current_user.email
+
+    task.episode.approve_prior(
+        action_id, reviewer=review.reviewer, reviewer_type=review.reviewer_type  # type: ignore
+    )
     task.save()
 
     return
@@ -360,6 +386,7 @@ async def approve_prior_actions(
 async def approve_all_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
+    review: V1ReviewMany,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -369,7 +396,7 @@ async def approve_all_actions(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.approve_all()
+    task.episode.approve_all(reviewer=review.reviewer, reviewer_type=review.reviewer_type)  # type: ignore
     task.save()
 
     return
@@ -380,6 +407,7 @@ async def fail_action(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
+    review: V1CreateReview,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -389,7 +417,15 @@ async def fail_action(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.fail_one(action_id)
+    if not review.reviewer:
+        review.reviewer = current_user.email
+
+    task.episode.fail_one(
+        action_id,
+        reviewer=review.reviewer,  # type: ignore
+        reviewer_type=review.reviewer_type,
+        reason=review.reason,
+    )
     task.save()
 
     return
@@ -399,6 +435,7 @@ async def fail_action(
 async def fail_all_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
+    review: V1ReviewMany,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -408,7 +445,10 @@ async def fail_all_actions(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.fail_all()
+    if not review.reviewer:
+        review.reviewer = current_user.email
+
+    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=review.reviewer_type)  # type: ignore
     task.save()
 
     return

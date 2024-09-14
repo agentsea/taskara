@@ -88,6 +88,20 @@ class TaskRecord(Base):
     )
 
 
+class ReviewRequirementRecord(Base):
+    __tablename__ = "review_requirements"
+
+    id = Column(String, primary_key=True)
+    task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
+    number_required = Column(Integer, nullable=False)
+    users = Column(Text)
+    agents = Column(Text)
+    groups = Column(Text)
+    types = Column(Text)
+    created = Column(Float, default=time.time)
+    updated = Column(Float, nullable=True)
+
+
 class TaskTemplateRecord(Base):
     __tablename__ = "task_templates"
 
@@ -169,3 +183,12 @@ class FlagRecord(Base):
     flag = Column(Text)
     result = Column(Text, nullable=True)
     created = Column(Float, default=time.time)
+
+
+class PendingReviewersRecord(Base):
+    __tablename__ = "pending_reviewers"
+
+    id = Column(String, primary_key=True)
+    task_id = Column(String, ForeignKey("tasks.id"))
+    user_id = Column(String, nullable=True)
+    agent_id = Column(String, nullable=True)

@@ -16,7 +16,7 @@ from devicebay import V1Device, V1DeviceType
 from mllm import Prompt, V1Prompt
 from PIL import Image
 from pydantic import BaseModel
-from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef, V1EnvState
+from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef, V1EnvState, V1Review
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
 
@@ -25,8 +25,16 @@ from .db.conn import WithDB
 from .db.models import TaskRecord, LabelRecord, TagRecord
 from .env import HUB_API_KEY_ENV
 from .img import image_to_b64
-from .server.models import V1Prompts, V1Task, V1Tasks, V1TaskUpdate, V1Review
+from .server.models import (
+    V1Prompts,
+    V1Task,
+    V1Tasks,
+    V1TaskUpdate,
+    V1PendingReviewers,
+    V1ReviewRequirement,
+)
 from .flag import Flag
+from .review import ReviewRequirement
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -78,6 +86,7 @@ class Task(WithDB):
         assigned_to: Optional[str] = None,
         assigned_type: Optional[str] = None,
         reviews: List[V1Review] = [],
+        review_requirements: List[ReviewRequirement] = [],
         error: Optional[str] = None,
         output: Optional[str] = None,
         parameters: Dict[str, Any] = {},

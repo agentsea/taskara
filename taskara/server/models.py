@@ -1,6 +1,5 @@
 import time
 from typing import Any, Dict, List, Optional
-from enum import Enum
 
 import shortuuid
 from devicebay import V1Device, V1DeviceType
@@ -8,30 +7,19 @@ from devicebay.models import V1Device
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
 from threadmem.server.models import V1RoleThread
-
-
-class ReviewerType(Enum):
-    HUMAN = "human"
-    BOT = "bot"
-
-
-class V1Review(BaseModel):
-    """Review of a task"""
-
-    id: str
-    reviewer: str
-    success: bool
-    reviewer_type: str = ReviewerType.HUMAN.value
-    created: float
-    updated: Optional[float] = None
-    reason: Optional[str] = None
+from skillpacks.review import ReviewerType
 
 
 class V1CreateReview(BaseModel):
-    success: bool
+    approved: bool
     reviewer_type: str = ReviewerType.HUMAN.value
     reason: Optional[str] = None
     reviewer: Optional[str] = None
+
+
+class V1ReviewMany(BaseModel):
+    reviewer: Optional[str] = None
+    reviewer_type: str = ReviewerType.HUMAN.value
 
 
 class V1TaskUpdate(BaseModel):
@@ -220,3 +208,23 @@ class V1BoundingBoxFlag(BaseModel):
     img: str
     target: str
     bbox: V1BoundingBox
+
+
+class V1ReviewRequirement(BaseModel):
+    """Review requirement for a task"""
+
+    id: str
+    task_id: str
+    users: Optional[List[str]] = None
+    agents: Optional[List[str]] = None
+    groups: Optional[List[str]] = None
+    types: Optional[List[str]] = None
+    number_required: int = 2
+
+
+class V1PendingReviewers(BaseModel):
+    """Pending reviewers for a task"""
+
+    task_id: str
+    users: Optional[List[str]] = None
+    agents: Optional[List[str]] = None
