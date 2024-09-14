@@ -69,6 +69,7 @@ class TaskRecord(Base):
     assigned_to = Column(String, nullable=True)
     assigned_type = Column(String, nullable=True)
     reviews = Column(Text, nullable=True)
+    review_requirements = Column(Text, nullable=True)
     status = Column(String, nullable=False)
     created = Column(Float, nullable=False)
     started = Column(Float, nullable=False, default=0.0)

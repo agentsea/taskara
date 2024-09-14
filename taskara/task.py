@@ -16,7 +16,16 @@ from devicebay import V1Device, V1DeviceType
 from mllm import Prompt, V1Prompt
 from PIL import Image
 from pydantic import BaseModel
-from skillpacks import ActionEvent, Episode, V1Action, V1Episode, V1ToolRef, V1EnvState, V1Review
+from skillpacks import (
+    ActionEvent,
+    Episode,
+    V1Action,
+    V1Episode,
+    V1ToolRef,
+    V1EnvState,
+    V1Review,
+    Review,
+)
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
 
@@ -85,7 +94,7 @@ class Task(WithDB):
         prompts: List[Prompt] = [],
         assigned_to: Optional[str] = None,
         assigned_type: Optional[str] = None,
-        reviews: List[V1Review] = [],
+        reviews: List[Review] = [],
         review_requirements: List[ReviewRequirement] = [],
         error: Optional[str] = None,
         output: Optional[str] = None,
@@ -115,6 +124,7 @@ class Task(WithDB):
         self._output = output
         self._parameters = parameters
         self._reviews = reviews
+        self._review_requirements = review_requirements
         self._remote = remote
         self._prompts = prompts
         self._parent_id = parent_id
@@ -263,12 +273,20 @@ class Task(WithDB):
         self._owner_id = value
 
     @property
-    def reviews(self) -> List[V1Review]:
+    def reviews(self) -> List[Review]:
         return self._reviews
 
     @reviews.setter
-    def reviews(self, value: List[V1Review]):
+    def reviews(self, value: List[Review]):
         self._reviews = value
+
+    @property
+    def review_requirements(self) -> List[ReviewRequirement]:
+        return self._review_requirements
+
+    @review_requirements.setter
+    def review_requirements(self, value: List[ReviewRequirement]):
+        self._review_requirements = value
 
     @property
     def project(self) -> Optional[str]:
@@ -425,6 +443,16 @@ class Task(WithDB):
         if not hasattr(self, "_episode") or not self._episode:
             raise ValueError("episode not set")
 
+        review_ids = []
+        for review in self.reviews:
+            review_ids.append(review.id)
+            review.save()
+
+        requirement_ids = []
+        for req in self._review_requirements:
+            requirement_ids.append(req.id)
+            req.save()
+
         # Create the TaskRecord object without tags/labels initially
         task_record = TaskRecord(
             id=self._id,
@@ -435,7 +463,8 @@ class Task(WithDB):
             device_type=device_type,
             project=self._project,
             expect=expect,
-            reviews=json.dumps([r.model_dump() for r in self._reviews]),
+            reviews=json.dumps(review_ids),
+            review_requirements=json.dumps(requirement_ids),
             status=self._status.value,
             created=self._created,
             started=self._started,
@@ -472,8 +501,11 @@ class Task(WithDB):
         prompt_ids = json.loads(str(record.prompts))
         prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
-        review_lis = json.loads(str(record.reviews))
-        reviews = [V1Review.model_validate(review) for review in review_lis]
+        review_ids = json.loads(str(record.reviews))
+        reviews = [Review.find(id=id) for id in review_ids]
+
+        review_req_ids = json.loads(str(record.review_requirements))
+        review_reqs = [ReviewRequirement.find(id=id) for id in review_req_ids]
 
         parameters = json.loads(str(record.parameters))
 
@@ -498,6 +530,7 @@ class Task(WithDB):
         obj._device_type = device_type
         obj._expect_schema = expect
         obj._reviews = reviews
+        obj._review_requirements = review_reqs
         obj._status = TaskStatus(record.status)
         obj._created = record.created
         obj._started = record.started
@@ -794,6 +827,11 @@ class Task(WithDB):
                 raise TimeoutError(
                     f"Task {self._id} did not complete within {timeout} seconds."
                 )
+
+    def reviews_pending(self) -> None:
+        for reviews in self._review_requirements:
+
+            pass
 
     def store_prompt(
         self,
@@ -1153,6 +1191,10 @@ class Task(WithDB):
             completed=self._completed,
             assigned_to=self._assigned_to,
             assigned_type=self._assigned_type,
+            reviews=[r.to_v1() for r in self._reviews],
+            review_requirements=[
+                review.to_v1() for review in self._review_requirements
+            ],
             error=self._error,
             output=self._output,
             parameters=self._parameters,
@@ -1209,6 +1251,10 @@ class Task(WithDB):
         obj._completed = v1.completed
         obj._assigned_to = v1.assigned_to
         obj._assigned_type = v1.assigned_type
+        obj._reviews = [Review.from_v1(r) for r in v1.reviews]
+        obj._review_requirements = [
+            ReviewRequirement.from_v1(r) for r in v1.review_requirements
+        ]
         obj._error = v1.error
         obj._output = v1.output
         obj._version = v1.version
@@ -1280,6 +1326,11 @@ class Task(WithDB):
                     self._parameters = v1.parameters
                     self._project = v1.project
                     self._parent_id = v1.parent_id
+                    self._review_requirements = [
+                        ReviewRequirement.from_v1(requirement)
+                        for requirement in v1.review_requirements
+                    ]
+                    self._reviews = [Review.from_v1(r) for r in v1.reviews]
                     self._episode = self._get_episode(
                         task_id=v1.id,
                         remote=self._remote,
@@ -1315,6 +1366,8 @@ class Task(WithDB):
             self._completed = task._completed
             self._assigned_to = task._assigned_to
             self._assigned_type = task._assigned_type
+            self._reviews = task._reviews
+            self._review_requirements = task._review_requirements
             self._error = task._error
             self._output = task._output
             self._version = task._version

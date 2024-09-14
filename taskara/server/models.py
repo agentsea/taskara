@@ -7,7 +7,31 @@ from devicebay.models import V1Device
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
 from threadmem.server.models import V1RoleThread
-from skillpacks.review import ReviewerType
+from skillpacks.review import ReviewerType, V1Review
+
+
+class V1ReviewRequirement(BaseModel):
+    """Review requirement for a task"""
+
+    id: str
+    task_id: str
+    users: Optional[List[str]] = None
+    agents: Optional[List[str]] = None
+    groups: Optional[List[str]] = None
+    types: Optional[List[str]] = None
+    number_required: int = 2
+
+
+class V1PendingReviewers(BaseModel):
+    """Pending reviewers for a task"""
+
+    task_id: str
+    users: Optional[List[str]] = None
+    agents: Optional[List[str]] = None
+
+
+class V1PendingReviews(BaseModel):
+    tasks: List[str]
 
 
 class V1CreateReview(BaseModel):
@@ -44,6 +68,8 @@ class V1Task(BaseModel):
     status: Optional[str] = None
     threads: Optional[List[V1RoleThread]] = None
     prompts: Optional[List[str]] = None
+    reviews: List[V1Review] = []
+    review_requirements: List[V1ReviewRequirement] = []
     assigned_to: Optional[str] = None
     assigned_type: Optional[str] = None
     created: float = Field(default_factory=time.time)
@@ -208,27 +234,3 @@ class V1BoundingBoxFlag(BaseModel):
     img: str
     target: str
     bbox: V1BoundingBox
-
-
-class V1ReviewRequirement(BaseModel):
-    """Review requirement for a task"""
-
-    id: str
-    task_id: str
-    users: Optional[List[str]] = None
-    agents: Optional[List[str]] = None
-    groups: Optional[List[str]] = None
-    types: Optional[List[str]] = None
-    number_required: int = 2
-
-
-class V1PendingReviewers(BaseModel):
-    """Pending reviewers for a task"""
-
-    task_id: str
-    users: Optional[List[str]] = None
-    agents: Optional[List[str]] = None
-
-
-class V1PendingReviews(BaseModel):
-    tasks: List[str]

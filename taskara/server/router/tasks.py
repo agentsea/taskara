@@ -5,7 +5,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from mllm import Prompt, V1Prompt
-from skillpacks import ActionEvent, Episode
+from skillpacks import ActionEvent, Episode, Review
 from skillpacks.server.models import (
     V1ActionEvents,
     V1ActionEvent,
@@ -35,6 +35,7 @@ from taskara.server.models import (
     V1PendingReviews,
 )
 from taskara.db.models import PendingReviewersRecord
+from taskara.review import ReviewRequirement, PendingReviewers
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -195,7 +196,7 @@ async def review_task(
         created=time.time(),
         reason=data.reason,
     )
-    task._reviews.append(review)
+    task._reviews.append(Review.from_v1(review))
 
     logger.debug(f"saving review {review.id} to task")
     task.save()
@@ -219,20 +220,27 @@ async def post_task_msg(
     return
 
 
-@router.get("/v1/pending_reviews", response_model=V1Task)
-async def get_all_pending_reviews(
-    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
+@router.get("/v1/pending_reviews", response_model=V1PendingReviews)
+async def get_pending_reviews(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    agent_id: Optional[str] = None,
 ):
-    # TODO
-    pass
+    pending = PendingReviewers()
+
+    if agent_id:
+        return pending.pending_reviews(agent=agent_id)
+
+    return pending.pending_reviews(user=current_user.email)
 
 
 @router.get("/v1/tasks/{task_id}/pending_reviewers", response_model=V1PendingReviewers)
 async def get_pending_approvals(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
 ):
-    # TODO
-    pass
+    pending = PendingReviewers()
+
+    # TODO: SECURITY: we need authz here
+    return pending.pending_reviewers(task_id=task_id)
 
 
 @router.get("/v1/tasks/{task_id}/needs_review", response_model=V1Task)
@@ -505,7 +513,7 @@ async def fail_all_actions(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
 
-    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=greviewer_type)  # type: ignore
+    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
     task.save()
 
     return
