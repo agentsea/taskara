@@ -31,7 +31,10 @@ from taskara.server.models import (
     V1UserProfile,
     V1CreateReview,
     V1ReviewMany,
+    V1PendingReviewers,
+    V1PendingReviews,
 )
+from taskara.db.models import PendingReviewersRecord
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -214,6 +217,30 @@ async def post_task_msg(
     task.post_message(data.role, data.msg, data.images, thread=data.thread)  # type: ignore
     logger.debug(f"posted message to task: {task.__dict__}")
     return
+
+
+@router.get("/v1/pending_reviews", response_model=V1Task)
+async def get_all_pending_reviews(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
+):
+    # TODO
+    pass
+
+
+@router.get("/v1/tasks/{task_id}/pending_reviewers", response_model=V1PendingReviewers)
+async def get_pending_approvals(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
+):
+    # TODO
+    pass
+
+
+@router.get("/v1/tasks/{task_id}/needs_review", response_model=V1Task)
+async def get_needs_review(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
+):
+    # TODO
+    pass
 
 
 @router.post("/v1/tasks/{task_id}/prompts")
@@ -478,7 +505,7 @@ async def fail_all_actions(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
 
-    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
+    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=greviewer_type)  # type: ignore
     task.save()
 
     return

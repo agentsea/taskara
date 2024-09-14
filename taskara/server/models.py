@@ -228,3 +228,7 @@ class V1PendingReviewers(BaseModel):
     task_id: str
     users: Optional[List[str]] = None
     agents: Optional[List[str]] = None
+
+
+class V1PendingReviews(BaseModel):
+    tasks: List[str]

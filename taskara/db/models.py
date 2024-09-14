@@ -96,8 +96,6 @@ class ReviewRequirementRecord(Base):
     number_required = Column(Integer, nullable=False)
     users = Column(Text)
     agents = Column(Text)
-    groups = Column(Text)
-    types = Column(Text)
     created = Column(Float, default=time.time)
     updated = Column(Float, nullable=True)
 

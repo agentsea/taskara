@@ -4,8 +4,89 @@ import time
 import json
 
 from taskara.db.conn import WithDB
-from taskara.db.models import ReviewRequirementRecord
-from taskara.server.models import V1ReviewRequirement
+from taskara.db.models import ReviewRequirementRecord, PendingReviewersRecord
+from taskara.server.models import (
+    V1ReviewRequirement,
+    V1PendingReviewers,
+    V1PendingReviews,
+)
+
+
+class PendingReviewers(WithDB):
+    """A pending review requirement for a task"""
+
+    def pending_reviewers(
+        self,
+        task_id: str,
+    ) -> V1PendingReviewers:
+        """Get the pending reviewers for a task"""
+
+        for db in self.get_db():
+            records = db.query(PendingReviewersRecord).filter_by(task_id=task_id).all()
+
+            users = [str(record.user_id) for record in records if record.user_id]  # type: ignore
+            agents = [str(record.agent_id) for record in records if record.agent_id]  # type: ignore
+
+            return V1PendingReviewers(
+                task_id=task_id,
+                users=users if users else [],
+                agents=agents if agents else [],
+            )
+
+        raise SystemError("no session")
+
+    def pending_reviews(
+        self, user: Optional[str] = None, agent: Optional[str] = None
+    ) -> V1PendingReviews:
+        """Get the pending reviews for a user or agent"""
+        for db in self.get_db():
+            query = db.query(PendingReviewersRecord)
+
+            if user:
+                query = query.filter(PendingReviewersRecord.user_id == user)
+            if agent:
+                query = query.filter(PendingReviewersRecord.agent_id == agent)
+
+            records = query.all()
+
+            tasks = list(set([str(record.task_id) for record in records]))
+
+            return V1PendingReviews(tasks=tasks)
+
+        raise SystemError("no session")
+
+    def add_pending_reviewer(
+        self, task_id: str, user: Optional[str] = None, agent: Optional[str] = None
+    ) -> None:
+        """Add a pending reviewer for a task"""
+        if not user and not agent:
+            raise ValueError("Either user or agent must be provided")
+
+        for db in self.get_db():
+            new_record = PendingReviewersRecord(
+                id=shortuuid.uuid(), task_id=task_id, user_id=user, agent_id=agent
+            )
+            db.add(new_record)
+            db.commit()
+
+    def remove_pending_reviewer(
+        self, task_id: str, user: Optional[str] = None, agent: Optional[str] = None
+    ) -> None:
+        """Remove a pending reviewer for a task"""
+        if not user and not agent:
+            raise ValueError("Either user or agent must be provided")
+
+        for db in self.get_db():
+            query = db.query(PendingReviewersRecord).filter_by(task_id=task_id)
+            if user:
+                query = query.filter_by(user_id=user)
+            if agent:
+                query = query.filter_by(agent_id=agent)
+
+            record = query.first()
+            if record:
+                db.delete(record)
+                db.commit()
 
 
 class ReviewRequirement(WithDB):
