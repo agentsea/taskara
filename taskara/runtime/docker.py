@@ -35,7 +35,7 @@ class DockerConnectConfig(BaseModel):
 class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectConfig]):
 
     def __init__(self, cfg: Optional[DockerConnectConfig] = None) -> None:
-        self._configure_docker_socket()
+        self.docker_socket = self._configure_docker_socket()
         if not cfg:
             cfg = DockerConnectConfig()
 
@@ -43,9 +43,13 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
 
         self._cfg = cfg
         if cfg.timeout:
-            self.client = docker.from_env(timeout=cfg.timeout)
+            self.client = docker.DockerClient(base_url=self.docker_socket, timeout=cfg.timeout)
         else:
-            self.client = docker.from_env()
+            self.client = docker.DockerClient(base_url=self.docker_socket)
+            
+        # Verify connection and version
+        self._check_version()
+
 
     def _configure_docker_socket(self):
         if os.path.exists("/var/run/docker.sock"):
@@ -62,6 +66,15 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
                     )
                 )
         os.environ["DOCKER_HOST"] = docker_socket
+        return docker_socket
+
+    def _check_version(self):
+            version_info = self.client.version()
+            engine_version = next((component['Version'] for component in version_info.get('Components', []) 
+                                if component['Name'] == 'Engine'), None)
+            if not engine_version:
+                raise SystemError("Unable to determine Docker Engine version")
+            logger.debug(f"Connected to Docker Engine version: {engine_version}")
 
     @classmethod
     def name(cls) -> str:
@@ -150,7 +163,7 @@ class DockerTrackerRuntime(TrackerRuntime["DockerTrackerRuntime", DockerConnectC
         auth_enabled: bool = True,
     ) -> Tracker:
 
-        api_client = APIClient()
+        api_client = docker.APIClient(base_url=self.docker_socket)
 
         # Pull the image with progress tracking
         pull_image(self.img, api_client)
