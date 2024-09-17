@@ -95,8 +95,10 @@ class ReviewRequirementRecord(Base):
     id = Column(String, primary_key=True)
     task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
     number_required = Column(Integer, nullable=False)
-    users = Column(Text)
-    agents = Column(Text)
+    users = Column(Text, nullable=True)
+    agents = Column(Text, nullable=True)
+    groups = Column(Text, nullable=True)
+    types = Column(Text, nullable=True)
     created = Column(Float, default=time.time)
     updated = Column(Float, nullable=True)
 
@@ -191,3 +193,4 @@ class PendingReviewersRecord(Base):
     task_id = Column(String, ForeignKey("tasks.id"))
     user_id = Column(String, nullable=True)
     agent_id = Column(String, nullable=True)
+    requirement_id = Column(String, nullable=True)

@@ -13,12 +13,11 @@ from skillpacks.review import ReviewerType, V1Review
 class V1ReviewRequirement(BaseModel):
     """Review requirement for a task"""
 
-    id: str
-    task_id: str
+    id: Optional[str] = None
+    task_id: Optional[str] = None
     users: Optional[List[str]] = None
     agents: Optional[List[str]] = None
     groups: Optional[List[str]] = None
-    types: Optional[List[str]] = None
     number_required: int = 2
 
 
@@ -91,6 +90,10 @@ class V1Task(BaseModel):
 
 class V1Tasks(BaseModel):
     tasks: List[V1Task]
+
+
+class V1TaskIDs(BaseModel):
+    task_ids: List[str]
 
 
 class V1TaskTemplate(BaseModel):

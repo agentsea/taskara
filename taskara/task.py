@@ -23,7 +23,6 @@ from skillpacks import (
     V1Episode,
     V1ToolRef,
     V1EnvState,
-    V1Review,
     Review,
 )
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
@@ -39,11 +38,9 @@ from .server.models import (
     V1Task,
     V1Tasks,
     V1TaskUpdate,
-    V1PendingReviewers,
-    V1ReviewRequirement,
 )
 from .flag import Flag
-from .review import ReviewRequirement
+from .review import ReviewRequirement, PendingReviewers
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -143,8 +140,10 @@ class Task(WithDB):
 
         if not self._remote and not self._description:
             raise ValueError("Task must have a description or a remote task")
+
         self.save()
         self.ensure_thread("feed")
+        self.update_pending_reviews()
 
     @classmethod
     def get_encryption_key(cls) -> bytes:
@@ -207,16 +206,20 @@ class Task(WithDB):
     ) -> "Task":
         """Get a task by id"""
         if remote:
+            print("\n\n!! Getting task from remote")
             resp = cls._remote_request(
                 remote, "GET", f"/v1/tasks/{id}", auth_token=auth_token
             )
             resp["remote"] = remote
             task = cls.from_v1(V1Task.model_validate(resp))
+            print("\n\n!! got task from remote: ", task)
             return task
 
+        print("\n\n!! Getting task from local")
         tasks = cls.find(id=id)
         if not tasks:
             raise ValueError(f"No task with id {id} found")
+        print("\n\n!! found task from local")
         task = tasks[0]
         return task
 
@@ -502,14 +505,16 @@ class Task(WithDB):
         prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
         review_ids = json.loads(str(record.reviews))
-        reviews = [Review.find(id=id) for id in review_ids]
+        reviews = [Review.find(id=id)[0] for id in review_ids]
 
         review_req_ids = json.loads(str(record.review_requirements))
-        review_reqs = [ReviewRequirement.find(id=id) for id in review_req_ids]
+        review_reqs = [ReviewRequirement.find(id=id)[0] for id in review_req_ids]
 
         parameters = json.loads(str(record.parameters))
 
         episodes = Episode.find(id=record.episode_id)
+        if not episodes:
+            raise ValueError("episode not found")
         episode = episodes[0]
 
         device_type = None
@@ -828,10 +833,77 @@ class Task(WithDB):
                     f"Task {self._id} did not complete within {timeout} seconds."
                 )
 
-    def reviews_pending(self) -> None:
-        for reviews in self._review_requirements:
+    def _episode_satified(self, user: str) -> bool:
+        episode = self.episode
+        if not episode:
+            raise ValueError("episode not set")
+        episode_satisfied = True
+        for action in episode.actions:
+            action_satisfied = False
+            for review in action.reviews:
+                if review.reviewer == user:
+                    action_satisfied = True
+                    break
+            if not action_satisfied:
+                episode_satisfied = False
 
-            pass
+        return episode_satisfied
+
+    def _review_satisfied(self, user: str) -> bool:
+        review_satisfied = False
+        for review in self.reviews:
+            if review.reviewer == user:
+                review_satisfied = True
+                break
+        return review_satisfied
+
+    def update_pending_reviews(self) -> None:
+        """Updates the pending reviewers table for the task"""
+
+        revs = PendingReviewers()
+
+        if revs.task_is_pending(self.id):
+            for req in self._review_requirements:
+                req_satisfied = False
+                total_approvals = 0
+
+                all_potential_reviewers = [*req.agents, *req.users]
+                for user in all_potential_reviewers:
+                    episode = self.episode
+                    if not episode:
+                        raise ValueError("episode not set")
+
+                    episode_satisfied = self._episode_satified(user)
+                    if not episode_satisfied:
+                        break
+
+                    review_satisfied = self._review_satisfied(user)
+                    if not review_satisfied:
+                        break
+
+                    total_approvals += 1
+
+                if total_approvals >= req.number_required:
+                    req_satisfied = True
+
+                if req_satisfied:
+                    for user in req.users:
+                        revs.remove_pending_reviewer(
+                            task_id=self.id, user=user, requirement_id=req.id
+                        )
+                    for agent in req.agents:
+                        revs.remove_pending_reviewer(
+                            task_id=self.id, user=agent, requirement_id=req.id
+                        )
+                else:
+                    for user in req.users:
+                        revs.ensure_pending_reviewer(
+                            task_id=self.id, user=user, requirement_id=req.id
+                        )
+                    for agent in req.agents:
+                        revs.ensure_pending_reviewer(
+                            task_id=self.id, user=agent, requirement_id=req.id
+                        )
 
     def store_prompt(
         self,
@@ -876,6 +948,7 @@ class Task(WithDB):
             agent_id=agent_id,
             model=model,
         )
+        print("stored prompt: ", prompt.id)
         self._prompts.append(prompt)
         self.save()
         return prompt.id
@@ -1297,7 +1370,6 @@ class Task(WithDB):
         if hasattr(self, "_remote") and self._remote:
             logger.debug(f"refreshing remote task {self._id}")
             try:
-
                 remote_task = self._remote_request(
                     self._remote,
                     "GET",
@@ -1397,7 +1469,7 @@ class Task(WithDB):
             config = GlobalConfig.read()
             if config.api_key:
                 auth_token = config.api_key
-                logger.debug(f"using hub auth token found in global config")
+                logger.debug("using hub auth token found in global config")
 
         if auth_token:
             logger.debug(f"auth_token: {auth_token}")
@@ -1426,7 +1498,7 @@ class Task(WithDB):
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
                 if response.status_code == 404 and suppress_not_found:
-                    logger.debug(f"suppressing 404 not found error")
+                    logger.debug("suppressing 404 not found error")
                     raise
 
                 logger.error(f"HTTP Error: {e}")

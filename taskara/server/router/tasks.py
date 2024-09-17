@@ -3,7 +3,7 @@ from typing import Annotated, Optional, List
 import json
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from mllm import Prompt, V1Prompt
 from skillpacks import ActionEvent, Episode, Review
 from skillpacks.server.models import (
@@ -14,8 +14,6 @@ from skillpacks.server.models import (
     V1Review,
 )
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
-from fastapi import Query, Depends
-from fastapi.routing import APIRouter
 import shortuuid
 
 from taskara import Task, TaskStatus
@@ -34,8 +32,7 @@ from taskara.server.models import (
     V1PendingReviewers,
     V1PendingReviews,
 )
-from taskara.db.models import PendingReviewersRecord
-from taskara.review import ReviewRequirement, PendingReviewers
+from taskara.review import PendingReviewers, ReviewRequirement
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -58,6 +55,20 @@ async def create_task(
     if not episode:
         episode = Episode()
 
+    data.id = shortuuid.uuid()
+
+    review_reqs = []
+    for req in data.review_requirements:
+        review_reqs.append(
+            ReviewRequirement(
+                task_id=data.id,
+                number_required=req.number_required,
+                users=req.users,
+                agents=req.agents,
+                groups=req.groups,
+            )
+        )
+
     status = data.status or "created"
     task_status = TaskStatus(status)
     task = Task(
@@ -71,6 +82,7 @@ async def create_task(
         parameters=data.parameters if data.parameters else {},
         assigned_to=data.assigned_to,
         assigned_type=data.assigned_type,
+        review_requirements=review_reqs,
         labels=data.labels if data.labels else {},
         tags=data.tags if data.tags else [],
         episode=episode,
@@ -200,6 +212,8 @@ async def review_task(
 
     logger.debug(f"saving review {review.id} to task")
     task.save()
+    task.update_pending_reviews()
+
     return task.to_v1()
 
 
@@ -243,14 +257,6 @@ async def get_pending_approvals(
     return pending.pending_reviewers(task_id=task_id)
 
 
-@router.get("/v1/tasks/{task_id}/needs_review", response_model=V1Task)
-async def get_needs_review(
-    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
-):
-    # TODO
-    pass
-
-
 @router.post("/v1/tasks/{task_id}/prompts")
 async def store_prompt(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
@@ -258,6 +264,7 @@ async def store_prompt(
     data: V1Prompt,
 ):
     logger.debug(f"posting prompt to task: {data.model_dump()}")
+    print("storing prompt in task: ", data.model_dump())
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -270,6 +277,7 @@ async def store_prompt(
         metadata=data.metadata,
         owner_id=current_user.email,
     )
+    print("returning prompt id: ", id)
 
     logger.debug(f"stored prompt in task: {task.__dict__}")
     return {"id": id}
@@ -393,6 +401,7 @@ async def approve_action(
         reason=review.reason,
     )
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -421,10 +430,18 @@ async def approve_prior_actions(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
 
+    if not review.reviewer:
+        review.reviewer = current_user.email
+        if not review.reviewer:
+            raise ValueError("no review user")
+
     task.episode.approve_prior(
-        action_id, reviewer=review.reviewer, reviewer_type=reviewer_type  # type: ignore
+        action_id,
+        reviewer=review.reviewer,
+        reviewer_type=reviewer_type,  # type: ignore
     )
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -451,6 +468,7 @@ async def approve_all_actions(
 
     task.episode.approve_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -486,6 +504,7 @@ async def fail_action(
         reason=review.reason,
     )
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -515,6 +534,7 @@ async def fail_all_actions(
 
     task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
     task.save()
+    task.update_pending_reviews()
 
     return
 
