@@ -20,6 +20,11 @@ from taskara.server.models import (
     V1Tasks,
     V1TaskTemplate,
     V1CreateReview,
+    V1Prompt,
+    V1RoleThread,
+    V1PendingReviewers,
+    V1PendingReviews,
+    V1CreateReview,
 )
 
 
@@ -43,7 +48,19 @@ def test_process_tracker_runtime():
         task_data = {
             "description": "Search for french ducks",
             "assigned_to": "tom@myspace.com",
-            "labels": {"test": "true"},  # Labels passed in task creation
+            "labels": {"test": "true"},
+            "review_requirements": [
+                {
+                    "number_required": 2,
+                    "users": ["anonymous@agentsea.ai"],
+                    "agents": ["agent1", "agent2"],
+                },
+                {
+                    "number_required": 1,
+                    "users": ["tom@myspace.com", "anonymous@agentsea.ai"],
+                    "agents": ["agent3"],
+                },
+            ],
         }
         status, text = server.call(path="/v1/tasks", method="POST", data=task_data)
         print("status: ", status)
@@ -77,6 +94,44 @@ def test_process_tracker_runtime():
         assert status == 200
         task = V1Task.model_validate(json.loads(text))
         assert task.id == task_id
+
+        # Check the review requirements
+        status, text = server.call(
+            path=f"/v1/tasks/{task_id}/pending_reviewers", method="GET"
+        )
+        assert status == 200
+        pending_reviewers = V1PendingReviewers.model_validate_json(text)
+        assert pending_reviewers.users is not None
+        assert len(pending_reviewers.users) == 5
+
+        status, text = server.call(path="/v1/pending_reviews", method="GET")
+        assert status == 200
+        pending_reviews = V1PendingReviews.model_validate_json(text)
+        assert len(pending_reviews.tasks) == 1
+
+        # Approve the task
+        data = V1CreateReview(approved=True, reason="Approved")
+        status, text = server.call(
+            path=f"/v1/tasks/{task_id}/review", method="PUT", data=data.model_dump()
+        )
+
+        data = V1CreateReview(approved=True, reason="Approved", reviewer="agent1")
+        status, text = server.call(
+            path=f"/v1/tasks/{task_id}/review", method="PUT", data=data.model_dump()
+        )
+
+        status, text = server.call(
+            path=f"/v1/tasks/{task_id}/pending_reviewers", method="GET"
+        )
+        assert status == 200
+        pending_reviewers = V1PendingReviewers.model_validate_json(text)
+        assert pending_reviewers.users is not None
+        assert len(pending_reviewers.users) == 3
+
+        status, text = server.call(path="/v1/pending_reviews", method="GET")
+        assert status == 200
+        pending_reviews = V1PendingReviews.model_validate_json(text)
+        assert len(pending_reviews.tasks) == 0
 
         # Update the task
         update_data = {
@@ -138,6 +193,7 @@ def test_process_tracker_runtime():
                 images=[],
             ),
         )
+        print("sending prompt id: ", prompt.id)
         status, resp = server.call(
             path=f"/v1/tasks/{task_id}/prompts",
             method="POST",
@@ -145,6 +201,15 @@ def test_process_tracker_runtime():
         )
         print("store prompt status: ", status)
         assert status == 200
+
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{task_id}",
+            method="GET",
+        )
+        print("get task status: ", status)
+        assert status == 200
+        task = V1Task.model_validate(json.loads(resp_text))
+        print("task: ", task)
 
         print("store prompt response: ", resp)
 
@@ -159,7 +224,7 @@ def test_process_tracker_runtime():
         assert status == 200
 
         # Write a review
-        review = V1CreateReview(success=True, reason="test")
+        review = V1CreateReview(approved=True, reason="test")
         status, _ = server.call(
             path=f"/v1/tasks/{task_id}/review",
             method="PUT",
@@ -187,7 +252,6 @@ def test_process_tracker_runtime():
         status, resp_text = server.call(
             path=f"/v1/tasks/{task_id}",
             method="GET",
-            data=action_event.to_v1().model_dump(),
         )
         print("get task status: ", status)
         assert status == 200
@@ -213,7 +277,7 @@ def test_process_tracker_runtime():
             remote=f"http://localhost:{server.port}",
             expect=Expected,
         )
-        print("created a new task")
+        print("created a new task: ", new_task.id)
 
         tpl0 = TaskTemplate(
             description="A good test 0",

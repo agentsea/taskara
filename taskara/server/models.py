@@ -1,6 +1,5 @@
 import time
 from typing import Any, Dict, List, Optional
-from enum import Enum
 
 import shortuuid
 from devicebay import V1Device, V1DeviceType
@@ -8,30 +7,42 @@ from devicebay.models import V1Device
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
 from threadmem.server.models import V1RoleThread
+from skillpacks.review import ReviewerType, V1Review
 
 
-class ReviewerType(Enum):
-    HUMAN = "human"
-    BOT = "bot"
+class V1ReviewRequirement(BaseModel):
+    """Review requirement for a task"""
+
+    id: Optional[str] = None
+    task_id: Optional[str] = None
+    users: Optional[List[str]] = None
+    agents: Optional[List[str]] = None
+    groups: Optional[List[str]] = None
+    number_required: int = 2
 
 
-class V1Review(BaseModel):
-    """Review of a task"""
+class V1PendingReviewers(BaseModel):
+    """Pending reviewers for a task"""
 
-    id: str
-    reviewer: str
-    success: bool
-    reviewer_type: str = ReviewerType.HUMAN.value
-    created: float
-    updated: Optional[float] = None
-    reason: Optional[str] = None
+    task_id: str
+    users: Optional[List[str]] = None
+    agents: Optional[List[str]] = None
+
+
+class V1PendingReviews(BaseModel):
+    tasks: List[str]
 
 
 class V1CreateReview(BaseModel):
-    success: bool
+    approved: bool
     reviewer_type: str = ReviewerType.HUMAN.value
     reason: Optional[str] = None
     reviewer: Optional[str] = None
+
+
+class V1ReviewMany(BaseModel):
+    reviewer: Optional[str] = None
+    reviewer_type: str = ReviewerType.HUMAN.value
 
 
 class V1TaskUpdate(BaseModel):
@@ -56,6 +67,8 @@ class V1Task(BaseModel):
     status: Optional[str] = None
     threads: Optional[List[V1RoleThread]] = None
     prompts: Optional[List[str]] = None
+    reviews: List[V1Review] = []
+    review_requirements: List[V1ReviewRequirement] = []
     assigned_to: Optional[str] = None
     assigned_type: Optional[str] = None
     created: float = Field(default_factory=time.time)
@@ -77,6 +90,10 @@ class V1Task(BaseModel):
 
 class V1Tasks(BaseModel):
     tasks: List[V1Task]
+
+
+class V1TaskIDs(BaseModel):
+    task_ids: List[str]
 
 
 class V1TaskTemplate(BaseModel):

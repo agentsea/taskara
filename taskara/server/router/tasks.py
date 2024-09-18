@@ -3,13 +3,17 @@ from typing import Annotated, Optional, List
 import json
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from mllm import Prompt, V1Prompt
-from skillpacks import ActionEvent, Episode
-from skillpacks.server.models import V1ActionEvents, V1ActionEvent, V1Episode
+from skillpacks import ActionEvent, Episode, Review
+from skillpacks.server.models import (
+    V1ActionEvents,
+    V1ActionEvent,
+    V1Episode,
+    ReviewerType,
+    V1Review,
+)
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
-from fastapi import Query, Depends
-from fastapi.routing import APIRouter
 import shortuuid
 
 from taskara import Task, TaskStatus
@@ -24,9 +28,11 @@ from taskara.server.models import (
     V1TaskUpdate,
     V1UserProfile,
     V1CreateReview,
-    V1Review,
-    ReviewerType,
+    V1ReviewMany,
+    V1PendingReviewers,
+    V1PendingReviews,
 )
+from taskara.review import PendingReviewers, ReviewRequirement
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -49,6 +55,21 @@ async def create_task(
     if not episode:
         episode = Episode()
 
+    if not data.id:
+        data.id = shortuuid.uuid()
+
+    review_reqs = []
+    for req in data.review_requirements:
+        review_reqs.append(
+            ReviewRequirement(
+                task_id=data.id,
+                number_required=req.number_required,
+                users=req.users,
+                agents=req.agents,
+                groups=req.groups,
+            )
+        )
+
     status = data.status or "created"
     task_status = TaskStatus(status)
     task = Task(
@@ -62,10 +83,12 @@ async def create_task(
         parameters=data.parameters if data.parameters else {},
         assigned_to=data.assigned_to,
         assigned_type=data.assigned_type,
+        review_requirements=review_reqs,
         labels=data.labels if data.labels else {},
         tags=data.tags if data.tags else [],
         episode=episode,
     )
+    logger.debug(f"saved task: {task.id}")
 
     return task.to_v1()
 
@@ -172,19 +195,32 @@ async def review_task(
     task = task[0]
 
     logger.debug(f"found task: {task.__dict__}")
+    reviewer_type = data.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    if not data.reviewer:
+        data.reviewer = current_user.email
+
+    # Create review
     review = V1Review(
         id=shortuuid.uuid(),
-        reviewer=data.reviewer or current_user.email,  # type: ignore
-        success=data.success,
-        reviewer_type=data.reviewer_type or ReviewerType.HUMAN.value,
+        reviewer=data.reviewer,  # type: ignore
+        approved=data.approved,
+        reviewer_type=reviewer_type,
+        resource_type="task",
+        resource_id=task_id,
         created=time.time(),
         reason=data.reason,
     )
-
-    task._reviews.append(review)
+    task._reviews.append(Review.from_v1(review))
 
     logger.debug(f"saving review {review.id} to task")
     task.save()
+    task.update_pending_reviews()
+
     return task.to_v1()
 
 
@@ -203,6 +239,29 @@ async def post_task_msg(
     task.post_message(data.role, data.msg, data.images, thread=data.thread)  # type: ignore
     logger.debug(f"posted message to task: {task.__dict__}")
     return
+
+
+@router.get("/v1/pending_reviews", response_model=V1PendingReviews)
+async def get_pending_reviews(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    agent_id: Optional[str] = None,
+):
+    pending = PendingReviewers()
+
+    if agent_id:
+        return pending.pending_reviews(agent=agent_id)
+
+    return pending.pending_reviews(user=current_user.email)
+
+
+@router.get("/v1/tasks/{task_id}/pending_reviewers", response_model=V1PendingReviewers)
+async def get_pending_approvals(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
+):
+    pending = PendingReviewers()
+
+    # TODO: SECURITY: we need authz here
+    return pending.pending_reviewers(task_id=task_id)
 
 
 @router.post("/v1/tasks/{task_id}/prompts")
@@ -321,6 +380,7 @@ async def approve_action(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
+    review: V1CreateReview,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -330,8 +390,23 @@ async def approve_action(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.approve_one(action_id)
+    if not review.reviewer:
+        review.reviewer = current_user.email
+
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    task.episode.approve_one(
+        action_id,
+        reviewer=review.reviewer,  # type: ignore
+        reviewer_type=reviewer_type,
+        reason=review.reason,
+    )
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -341,6 +416,7 @@ async def approve_prior_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
+    review: V1ReviewMany,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -350,8 +426,27 @@ async def approve_prior_actions(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.approve_prior(action_id)
+    if not review.reviewer:
+        review.reviewer = current_user.email
+
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    if not review.reviewer:
+        review.reviewer = current_user.email
+        if not review.reviewer:
+            raise ValueError("no review user")
+
+    task.episode.approve_prior(
+        action_id,
+        reviewer=review.reviewer,
+        reviewer_type=reviewer_type,  # type: ignore
+    )
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -360,6 +455,7 @@ async def approve_prior_actions(
 async def approve_all_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
+    review: V1ReviewMany,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -369,8 +465,15 @@ async def approve_all_actions(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.approve_all()
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    task.episode.approve_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -380,6 +483,7 @@ async def fail_action(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
+    review: V1CreateReview,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -389,8 +493,23 @@ async def fail_action(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.fail_one(action_id)
+    if not review.reviewer:
+        review.reviewer = current_user.email
+
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    task.episode.fail_one(
+        action_id,
+        reviewer=review.reviewer,  # type: ignore
+        reviewer_type=reviewer_type,
+        reason=review.reason,
+    )
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -399,6 +518,7 @@ async def fail_action(
 async def fail_all_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
+    review: V1ReviewMany,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -408,8 +528,18 @@ async def fail_all_actions(
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
-    task.episode.fail_all()
+    if not review.reviewer:
+        review.reviewer = current_user.email
+
+    reviewer_type = review.reviewer_type or ReviewerType.HUMAN.value
+    if reviewer_type not in [ReviewerType.HUMAN.value, ReviewerType.AGENT.value]:
+        raise HTTPException(
+            status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
+        )
+
+    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
     task.save()
+    task.update_pending_reviews()
 
     return
 
@@ -458,7 +588,6 @@ async def create_thread(
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
     task.create_thread(data.name, data.public, data.metadata)
-    print("\nadded thread: ", task.__dict__)
     return
 
 

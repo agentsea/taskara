@@ -69,6 +69,7 @@ class TaskRecord(Base):
     assigned_to = Column(String, nullable=True)
     assigned_type = Column(String, nullable=True)
     reviews = Column(Text, nullable=True)
+    review_requirements = Column(Text, nullable=True)
     status = Column(String, nullable=False)
     created = Column(Float, nullable=False)
     started = Column(Float, nullable=False, default=0.0)
@@ -86,6 +87,20 @@ class TaskRecord(Base):
     labels = relationship(
         "LabelRecord", secondary=task_label_association, backref="tasks"
     )
+
+
+class ReviewRequirementRecord(Base):
+    __tablename__ = "review_requirements"
+
+    id = Column(String, primary_key=True)
+    task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
+    number_required = Column(Integer, nullable=False)
+    users = Column(Text, nullable=True)
+    agents = Column(Text, nullable=True)
+    groups = Column(Text, nullable=True)
+    types = Column(Text, nullable=True)
+    created = Column(Float, default=time.time)
+    updated = Column(Float, nullable=True)
 
 
 class TaskTemplateRecord(Base):
@@ -169,3 +184,13 @@ class FlagRecord(Base):
     flag = Column(Text)
     result = Column(Text, nullable=True)
     created = Column(Float, default=time.time)
+
+
+class PendingReviewersRecord(Base):
+    __tablename__ = "pending_reviewers"
+
+    id = Column(String, primary_key=True)
+    task_id = Column(String, ForeignKey("tasks.id"))
+    user_id = Column(String, nullable=True)
+    agent_id = Column(String, nullable=True)
+    requirement_id = Column(String, nullable=True)
