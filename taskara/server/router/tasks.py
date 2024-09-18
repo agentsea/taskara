@@ -88,7 +88,7 @@ async def create_task(
         tags=data.tags if data.tags else [],
         episode=episode,
     )
-    print("saved task: ", task.id, flush=True)
+    logger.debug(f"saved task: {task.id}")
 
     return task.to_v1()
 
@@ -204,8 +204,6 @@ async def review_task(
     if not data.reviewer:
         data.reviewer = current_user.email
 
-    print("\n$creating review with reviewer: ", data.reviewer, flush=True)
-
     # Create review
     review = V1Review(
         id=shortuuid.uuid(),
@@ -273,7 +271,6 @@ async def store_prompt(
     data: V1Prompt,
 ):
     logger.debug(f"posting prompt to task: {data.model_dump()}")
-    print("storing prompt in task: ", data.model_dump(), flush=True)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -286,7 +283,6 @@ async def store_prompt(
         metadata=data.metadata,
         owner_id=current_user.email,
     )
-    print("returning prompt id: ", id, flush=True)
 
     logger.debug(f"stored prompt in task: {task.__dict__}")
     return {"id": id}
@@ -592,7 +588,6 @@ async def create_thread(
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
     task.create_thread(data.name, data.public, data.metadata)
-    print("\nadded thread: ", task.__dict__)
     return
 
 

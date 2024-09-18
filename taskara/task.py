@@ -142,7 +142,6 @@ class Task(WithDB):
             raise ValueError("Task must have a description or a remote task")
 
         self.save()
-        time.sleep(1)
         self.ensure_thread("feed")
         self.update_pending_reviews()
 
@@ -207,20 +206,16 @@ class Task(WithDB):
     ) -> "Task":
         """Get a task by id"""
         if remote:
-            print("\n\n!! Getting task from remote")
             resp = cls._remote_request(
                 remote, "GET", f"/v1/tasks/{id}", auth_token=auth_token
             )
             resp["remote"] = remote
             task = cls.from_v1(V1Task.model_validate(resp))
-            print("\n\n!! got task from remote: ", task)
             return task
 
-        print("\n\n!! Getting task from local")
         tasks = cls.find(id=id)
         if not tasks:
             raise ValueError(f"No task with id {id} found")
-        print("\n\n!! found task from local")
         task = tasks[0]
         return task
 
@@ -846,17 +841,13 @@ class Task(WithDB):
                     action_satisfied = True
                     break
             if not action_satisfied:
-                print("\n$action not satisfied: ", action.id)
                 episode_satisfied = False
 
         return episode_satisfied
 
     def _review_satisfied(self, user: str) -> bool:
         review_satisfied = False
-        print("\n$checking reviews: ", self.reviews, flush=True)
-        print("for user: ", user, flush=True)
         for review in self.reviews:
-            print("\n$checking review: ", review.to_v1().model_dump(), flush=True)
             if review.reviewer == user:
                 review_satisfied = True
                 break
@@ -864,35 +855,23 @@ class Task(WithDB):
 
     def update_pending_reviews(self) -> None:
         """Updates the pending reviewers table for the task"""
-
-        print(
-            "\n$updating pending reviews with requirements: ",
-            self._review_requirements,
-            flush=True,
-        )
-        print("\n$checking reviews: ", self.reviews, flush=True)
         revs = PendingReviewers()
 
         for req in self._review_requirements:
-            print("\n######\n\n$checking req: ", req.to_v1().model_dump(), flush=True)
             req_satisfied = False
             total_approvals = 0
 
             all_potential_reviewers = [*req.agents, *req.users]
-            print("\n$all potential reviewers: ", all_potential_reviewers, flush=True)
             for user in all_potential_reviewers:
-                print("\n-- checking user: ", user, flush=True)
                 episode = self.episode
                 if not episode:
                     raise ValueError("episode not set")
 
                 episode_satisfied = self._episode_satified(user)
-                print("\n$episode satisfied: ", episode_satisfied, flush=True)
                 if not episode_satisfied:
                     continue
 
                 review_satisfied = self._review_satisfied(user)
-                print("\n$review satisfied: ", review_satisfied, flush=True)
                 if not review_satisfied:
                     continue
 
@@ -901,26 +880,25 @@ class Task(WithDB):
             if total_approvals >= req.number_required:
                 req_satisfied = True
 
-            print("\n$req satisfied: ", req_satisfied, flush=True)
             if req_satisfied:
                 for user in req.users:
-                    print("\n$removing pending reviewer: ", user, flush=True)
+                    logger.debug(f"removing pending reviewer: {user}")
                     revs.remove_pending_reviewer(
                         task_id=self.id, user=user, requirement_id=req.id
                     )
                 for agent in req.agents:
-                    print("\n$removing pending reviewer: ", agent, flush=True)
+                    logger.debug(f"removing pending reviewer: {agent}")
                     revs.remove_pending_reviewer(
                         task_id=self.id, user=agent, requirement_id=req.id
                     )
             else:
                 for user in req.users:
-                    print("\n$adding pending reviewer: ", user, flush=True)
+                    logger.debug(f"adding pending reviewer: {user}")
                     revs.ensure_pending_reviewer(
                         task_id=self.id, user=user, requirement_id=req.id
                     )
                 for agent in req.agents:
-                    print("\n$adding pending reviewer: ", agent, flush=True)
+                    logger.debug(f"adding pending reviewer: {agent}")
                     revs.ensure_pending_reviewer(
                         task_id=self.id, user=agent, requirement_id=req.id
                     )
@@ -970,10 +948,7 @@ class Task(WithDB):
         )
         prompt.save()
 
-        found = Prompt.find()
-        for f in found:
-            print("current prompts: ", f.id, flush=True)
-        print("stored prompt: ", prompt.id, flush=True)
+        logger.debug(f"stored prompt: {prompt.id}")
         self._prompts.append(prompt)
         self.save()
         return prompt.id
@@ -1155,11 +1130,9 @@ class Task(WithDB):
                     json_data=self.to_v1().model_dump(),
                     auth_token=self.auth_token,
                 )
-                print("created new task: ", resp, flush=True)
                 logger.debug(f"created new task {self._id}")
         else:
             logger.debug(f"saving local db task: {self._id}")
-            print("saved task: ", self.id, flush=True)
             if hasattr(self, "_version"):
                 if self._version != new_version:
                     self._version = new_version
