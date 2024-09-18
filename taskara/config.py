@@ -3,9 +3,7 @@ Configuration for taskara
 """
 
 import os
-import time
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional
 
 import yaml
@@ -27,7 +25,7 @@ AGENTSEA_HUB_API_URL = os.getenv(
 DB_TEST = os.environ.get("AGENTSEA_DB_TEST", "false") == "true"
 DB_NAME = os.environ.get("TASKS_DB_NAME", "tasks.db")
 if DB_TEST:
-    DB_NAME = f"tasks_test_{int(time.time())}.db"
+    DB_NAME = "tasks_test.db"
 
 
 @dataclass

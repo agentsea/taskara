@@ -34,14 +34,16 @@ class PendingReviewers(WithDB):
             records = query.all()
 
             # Extract users and agents
-            users = [str(record.user_id) for record in records if record.user_id]  # type: ignore
-            agents = [str(record.agent_id) for record in records if record.agent_id]  # type: ignore
+            users = set([str(record.user_id) for record in records if record.user_id])  # type: ignore
+            agents = set(
+                [str(record.agent_id) for record in records if record.agent_id]  # type: ignore
+            )
 
             # Return the V1PendingReviewers with the filtered data
             return V1PendingReviewers(
                 task_id=task_id,
-                users=users if users else [],
-                agents=agents if agents else [],
+                users=list(users) if users else [],
+                agents=list(agents) if agents else [],
             )
 
         raise SystemError("no session")

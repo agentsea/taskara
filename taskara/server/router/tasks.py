@@ -55,7 +55,8 @@ async def create_task(
     if not episode:
         episode = Episode()
 
-    data.id = shortuuid.uuid()
+    if not data.id:
+        data.id = shortuuid.uuid()
 
     review_reqs = []
     for req in data.review_requirements:
@@ -87,6 +88,7 @@ async def create_task(
         tags=data.tags if data.tags else [],
         episode=episode,
     )
+    print("saved task: ", task.id, flush=True)
 
     return task.to_v1()
 
@@ -199,12 +201,19 @@ async def review_task(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
 
+    if not data.reviewer:
+        data.reviewer = current_user.email
+
+    print("\n$creating review with reviewer: ", data.reviewer, flush=True)
+
     # Create review
     review = V1Review(
         id=shortuuid.uuid(),
-        reviewer=data.reviewer or current_user.email,  # type: ignore
+        reviewer=data.reviewer,  # type: ignore
         approved=data.approved,
         reviewer_type=reviewer_type,
+        resource_type="task",
+        resource_id=task_id,
         created=time.time(),
         reason=data.reason,
     )
@@ -264,7 +273,7 @@ async def store_prompt(
     data: V1Prompt,
 ):
     logger.debug(f"posting prompt to task: {data.model_dump()}")
-    print("storing prompt in task: ", data.model_dump())
+    print("storing prompt in task: ", data.model_dump(), flush=True)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -277,7 +286,7 @@ async def store_prompt(
         metadata=data.metadata,
         owner_id=current_user.email,
     )
-    print("returning prompt id: ", id)
+    print("returning prompt id: ", id, flush=True)
 
     logger.debug(f"stored prompt in task: {task.__dict__}")
     return {"id": id}
