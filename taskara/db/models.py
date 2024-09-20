@@ -93,7 +93,7 @@ class ReviewRequirementRecord(Base):
     __tablename__ = "review_requirements"
 
     id = Column(String, primary_key=True)
-    task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
+    task_id = Column(String, nullable=True)
     number_required = Column(Integer, nullable=False)
     users = Column(Text, nullable=True)
     agents = Column(Text, nullable=True)
