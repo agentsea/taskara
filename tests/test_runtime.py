@@ -9,7 +9,15 @@ from skillpacks import ActionEvent, V1Action, V1EnvState
 from skillpacks.server.models import V1Episode, V1ActionEvents
 from toolfuse.models import V1ToolRef
 
-from taskara import Benchmark, Task, TaskTemplate, V1Benchmark, V1Task, V1TaskTemplate
+from taskara import (
+    Benchmark,
+    Task,
+    TaskTemplate,
+    V1Benchmark,
+    V1Task,
+    V1TaskTemplate,
+    ReviewRequirement,
+)
 from taskara.runtime.process import ProcessConnectConfig, ProcessTrackerRuntime
 from taskara.server.models import (
     V1Benchmark,
@@ -278,6 +286,9 @@ def test_process_tracker_runtime():
             description="a good test",
             remote=f"http://localhost:{server.port}",
             expect=Expected,
+            review_requirements=[
+                ReviewRequirement(number_required=1, users=["tom@myspace.com"])
+            ],
         )
         print("created a new task: ", new_task.id)
 
@@ -298,6 +309,20 @@ def test_process_tracker_runtime():
         events = V1ActionEvents.model_validate(json.loads(resp_text))
         print("events: ", events)
         assert len(events.events) > 0
+
+        # Check the review requirements
+        status, text = server.call(
+            path=f"/v1/tasks/{new_task.id}/pending_reviewers", method="GET"
+        )
+        assert status == 200
+        pending_reviewers = V1PendingReviewers.model_validate_json(text)
+        assert pending_reviewers.users is not None
+        assert len(pending_reviewers.users) == 1
+
+        status, text = server.call(path="/v1/pending_reviews", method="GET")
+        assert status == 200
+        pending_reviews = V1PendingReviews.model_validate_json(text)
+        assert len(pending_reviews.tasks) == 1
 
         tpl0 = TaskTemplate(
             description="A good test 0",

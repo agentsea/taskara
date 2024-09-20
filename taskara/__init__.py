@@ -6,7 +6,7 @@ from .benchmark import (
     V1Eval,
     V1TaskTemplate,
 )
-from .task import Task, TaskClient, TaskStatus, V1Task, V1Tasks
+from .task import Task, TaskClient, TaskStatus, V1Task, V1Tasks, ReviewRequirement
 
 __all__ = [
     "Task",
@@ -20,4 +20,5 @@ __all__ = [
     "Eval",
     "V1Eval",
     "TaskClient",
+    "ReviewRequirement",
 ]

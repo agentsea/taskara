@@ -835,7 +835,8 @@ class Task(WithDB):
     def _episode_satified(self, user: str) -> bool:
         episode = self.episode
         if not episode:
-            raise ValueError("episode not set")
+            Warning("episode not set")
+            return False
         episode_satisfied = True
         for action in episode.actions:
             action_satisfied = False
@@ -866,10 +867,6 @@ class Task(WithDB):
 
             all_potential_reviewers = [*req.agents, *req.users]
             for user in all_potential_reviewers:
-                episode = self.episode
-                if not episode:
-                    raise ValueError("episode not set")
-
                 episode_satisfied = self._episode_satified(user)
                 if not episode_satisfied:
                     continue
