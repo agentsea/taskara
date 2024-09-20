@@ -121,6 +121,9 @@ class Task(WithDB):
         self._output = output
         self._parameters = parameters
         self._reviews = reviews
+
+        for review in self.review_requirements:
+            review.task_id = self._id
         self._review_requirements = review_requirements
         self._remote = remote
         self._prompts = prompts

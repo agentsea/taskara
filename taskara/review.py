@@ -160,7 +160,7 @@ class ReviewRequirement(WithDB):
 
     def __init__(
         self,
-        task_id: str,
+        task_id: Optional[str] = None,
         number_required: int = 2,
         users: Optional[List[str]] = None,
         agents: Optional[List[str]] = None,
