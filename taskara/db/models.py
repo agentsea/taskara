@@ -190,7 +190,7 @@ class PendingReviewersRecord(Base):
     __tablename__ = "pending_reviewers"
 
     id = Column(String, primary_key=True)
-    task_id = Column(String, ForeignKey("tasks.id"))
+    task_id = Column(String, nullable=True)
     user_id = Column(String, nullable=True)
     agent_id = Column(String, nullable=True)
     requirement_id = Column(String, nullable=True)
