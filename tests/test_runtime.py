@@ -6,6 +6,7 @@ from mllm import Prompt, RoleMessage, RoleThread
 from namesgenerator import get_random_name
 from openai import BaseModel
 from skillpacks import ActionEvent, V1Action, V1EnvState
+from skillpacks.server.models import V1Episode, V1ActionEvents
 from toolfuse.models import V1ToolRef
 
 from taskara import Benchmark, Task, TaskTemplate, V1Benchmark, V1Task, V1TaskTemplate
@@ -235,7 +236,7 @@ def test_process_tracker_runtime():
 
         # Store an action event
         action_event = ActionEvent(
-            state=V1EnvState(image="test"),
+            state=V1EnvState(image="https://test.img"),
             action=V1Action(name="test", parameters={}),
             tool=V1ToolRef(module="test", type="test"),
             prompt=prompt,
@@ -250,13 +251,14 @@ def test_process_tracker_runtime():
         assert status == 200
 
         status, resp_text = server.call(
-            path=f"/v1/tasks/{task_id}",
+            path=f"/v1/tasks/{task_id}/actions",
             method="GET",
         )
         print("get task status: ", status)
         assert status == 200
-        task = V1Task.model_validate(json.loads(resp_text))
-        print("task: ", task)
+        events = V1ActionEvents.model_validate(json.loads(resp_text))
+        print("events: ", events)
+        assert len(events.events) > 0
 
         print("getting remote task")
         found_task = Task.get(id=task_id, remote=f"http://localhost:{server.port}")
@@ -278,6 +280,24 @@ def test_process_tracker_runtime():
             expect=Expected,
         )
         print("created a new task: ", new_task.id)
+
+        action_event = ActionEvent(
+            state=V1EnvState(image="https://test.img"),
+            action=V1Action(name="test", parameters={}),
+            tool=V1ToolRef(module="test", type="test"),
+            prompt=prompt,
+        )
+        new_task.record_action_event(action_event)
+
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{new_task.id}/actions",
+            method="GET",
+        )
+        print("get task status: ", status)
+        assert status == 200
+        events = V1ActionEvents.model_validate(json.loads(resp_text))
+        print("events: ", events)
+        assert len(events.events) > 0
 
         tpl0 = TaskTemplate(
             description="A good test 0",

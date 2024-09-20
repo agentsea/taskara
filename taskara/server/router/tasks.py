@@ -364,10 +364,12 @@ async def get_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
+    print(f"getting actions for task: {task_id}")
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
+    print(f"got task: {task.__dict__}")
 
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
