@@ -192,6 +192,7 @@ class ReviewRequirement(WithDB):
     @classmethod
     def from_v1(cls, v1: V1ReviewRequirement) -> "ReviewRequirement":
         out = cls.__new__(cls)
+        out.id = v1.id
         out.task_id = v1.task_id
         out.number_required = v1.number_required
         out.users = v1.users
