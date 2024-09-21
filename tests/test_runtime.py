@@ -244,7 +244,7 @@ def test_process_tracker_runtime():
 
         # Store an action event
         action_event = ActionEvent(
-            state=V1EnvState(image="https://test.img"),
+            state=V1EnvState(images=["https://test.img"]),
             action=V1Action(name="test", parameters={}),
             tool=V1ToolRef(module="test", type="test"),
             prompt=prompt,
@@ -293,7 +293,7 @@ def test_process_tracker_runtime():
         print("created a new task: ", new_task.id)
 
         action_event = ActionEvent(
-            state=V1EnvState(image="https://test.img"),
+            state=V1EnvState(images=["https://test.img"]),
             action=V1Action(name="test", parameters={}),
             tool=V1ToolRef(module="test", type="test"),
             prompt=prompt,
