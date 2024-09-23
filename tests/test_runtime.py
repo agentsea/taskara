@@ -17,6 +17,7 @@ from taskara import (
     V1Task,
     V1TaskTemplate,
     ReviewRequirement,
+    TaskStatus,
 )
 from taskara.runtime.process import ProcessConnectConfig, ProcessTrackerRuntime
 from taskara.server.models import (
@@ -324,6 +325,22 @@ def test_process_tracker_runtime():
         pending_reviews = V1PendingReviews.model_validate_json(text)
         assert len(pending_reviews.tasks) == 1
 
+        # Check that we can update the task
+        new_task.refresh()
+        new_task.status = TaskStatus.CANCELED
+        new_task.save()
+
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{new_task.id}/actions",
+            method="GET",
+        )
+        print("get task status: ", status)
+        assert status == 200
+        events = V1ActionEvents.model_validate(json.loads(resp_text))
+        print("events: ", events)
+        assert len(events.events) > 0
+
+        # Benchmarks
         tpl0 = TaskTemplate(
             description="A good test 0",
             device_type=V1DeviceType(name="desktop"),

@@ -669,6 +669,7 @@ class Task(WithDB):
                     auth_token=auth_token,
                 )
                 v1episode = V1Episode.model_validate(episode_data)
+                logger.debug(f"got episode from remote: {v1episode.model_dump()}")
                 return Episode.from_v1(v1episode)
 
             except Exception as e:
@@ -677,6 +678,7 @@ class Task(WithDB):
 
         if not id:
             ep = Episode()
+            print(f"WARNING: episode id not provided, using creating episode {ep.id}")
             ep.save()
             return ep
 
@@ -1140,6 +1142,7 @@ class Task(WithDB):
 
             if not hasattr(self, "_episode") or not self._episode:
                 self._episode = Episode()
+                print(f"WARNING: no episode set, created one {self._episode.id}")
             self._episode.save()
 
             for db in self.get_db():
