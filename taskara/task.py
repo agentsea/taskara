@@ -678,7 +678,10 @@ class Task(WithDB):
 
         if not id:
             ep = Episode()
-            print(f"WARNING: episode id not provided, using creating episode {ep.id}")
+            print(
+                f"WARNING: episode id not provided, using creating episode {ep.id}",
+                flush=True,
+            )
             ep.save()
             return ep
 
@@ -1142,7 +1145,10 @@ class Task(WithDB):
 
             if not hasattr(self, "_episode") or not self._episode:
                 self._episode = Episode()
-                print(f"WARNING: no episode set, created one {self._episode.id}")
+                print(
+                    f"WARNING: no episode set, created one {self._episode.id}",
+                    flush=True,
+                )
             self._episode.save()
 
             for db in self.get_db():

@@ -155,12 +155,14 @@ async def update_task(
     data: V1TaskUpdate,
 ):
     logger.debug(f"updating task with model: {data}")
+    print(f"updating task with model: {data}", flush=True)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
 
     logger.debug(f"found task: {task.__dict__}")
+    print(f"found task: {task.__dict__}", flush=True)
     if data.description:
         task.description = data.description
     if data.status:
@@ -178,6 +180,7 @@ async def update_task(
             task.labels[key] = value
 
     logger.debug(f"saving task: {task.__dict__}")
+    print(f"saving task: {task.__dict__}", flush=True)
     task.save()
     return task.to_v1()
 
