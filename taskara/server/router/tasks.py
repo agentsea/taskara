@@ -53,6 +53,7 @@ async def create_task(
         episode = episodes[0]
 
     if not episode:
+        print("WARNING: no episode found, creating new episode -- create task")
         episode = Episode()
 
     if not data.id:
@@ -189,11 +190,11 @@ async def update_task(
     print(f"saving task: {task.__dict__}", flush=True)
     task.save()
 
-    print("episode id: ", task.episode.id, flush=True)
+    print("episode id post-update: ", task.episode.id, flush=True)
     print_out = []
     for action in task.episode.actions:
         print_out.append(action.id)
-    print("current actions: ", print_out, flush=True)
+    print("current actions post-update: ", print_out, flush=True)
     return task.to_v1()
 
 
@@ -649,6 +650,7 @@ async def get_episode(
     task = task[0]
 
     if not task._episode:
+        print("WARNING: task has no episode, creating one -- get_episode")
         task._episode = Episode()
 
     return task._episode.to_v1()
