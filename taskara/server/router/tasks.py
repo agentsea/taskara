@@ -653,4 +653,6 @@ async def get_episode(
         print("WARNING: task has no episode, creating one -- get_episode")
         task._episode = Episode()
 
+    print(f"returning episode {task._episode.to_v1()}", flush=True)
+
     return task._episode.to_v1()
