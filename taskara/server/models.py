@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional
 
 import shortuuid
 from devicebay import V1Device, V1DeviceType
-from devicebay.models import V1Device
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
 from threadmem.server.models import V1RoleThread
