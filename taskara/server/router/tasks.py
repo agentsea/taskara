@@ -161,11 +161,11 @@ async def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
 
-    print("episode id: ", task.episode.id)
+    print("episode id: ", task.episode.id, flush=True)
     print_out = []
     for action in task.episode.actions:
         print_out.append(action.id)
-    print("current actions: ", print_out)
+    print("current actions: ", print_out, flush=True)
 
     logger.debug(f"found task: {task.__dict__}")
     print(f"found task: {task.__dict__}", flush=True)
@@ -189,11 +189,11 @@ async def update_task(
     print(f"saving task: {task.__dict__}", flush=True)
     task.save()
 
-    print("episode id: ", task.episode.id)
+    print("episode id: ", task.episode.id, flush=True)
     print_out = []
     for action in task.episode.actions:
         print_out.append(action.id)
-    print("current actions: ", print_out)
+    print("current actions: ", print_out, flush=True)
     return task.to_v1()
 
 
