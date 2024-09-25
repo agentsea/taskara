@@ -156,20 +156,12 @@ async def update_task(
     data: V1TaskUpdate,
 ):
     logger.debug(f"updating task with model: {data}")
-    print(f"updating task with model: {data}", flush=True)
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
 
-    print("episode id: ", task.episode.id, flush=True)
-    print_out = []
-    for action in task.episode.actions:
-        print_out.append(action.id)
-    print("current actions: ", print_out, flush=True)
-
     logger.debug(f"found task: {task.__dict__}")
-    print(f"found task: {task.__dict__}", flush=True)
     if data.description:
         task.description = data.description
     if data.status:
@@ -187,14 +179,8 @@ async def update_task(
             task.labels[key] = value
 
     logger.debug(f"saving task: {task.__dict__}")
-    print(f"saving task: {task.__dict__}", flush=True)
     task.save()
 
-    print("episode id post-update: ", task.episode.id, flush=True)
-    print_out = []
-    for action in task.episode.actions:
-        print_out.append(action.id)
-    print("current actions post-update: ", print_out, flush=True)
     return task.to_v1()
 
 
@@ -380,12 +366,10 @@ async def get_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    print(f"getting actions for task: {task_id}")
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
-    print(f"got task: {task.__dict__}")
 
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
@@ -652,7 +636,5 @@ async def get_episode(
     if not task._episode:
         print("WARNING: task has no episode, creating one -- get_episode")
         task._episode = Episode()
-
-    print(f"returning episode {task._episode.to_v1()}", flush=True)
 
     return task._episode.to_v1()

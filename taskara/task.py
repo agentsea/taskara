@@ -660,7 +660,9 @@ class Task(WithDB):
         id: Optional[str] = None,
         auth_token: Optional[str] = None,
     ) -> Episode:
-        print(f"getting episode from remote remote={remote} task_id={task_id} id={id}")
+        logger.debug(
+            f"getting episode from remote remote={remote} task_id={task_id} id={id}"
+        )
         if remote:
             try:
                 episode_data = cls._remote_request(
@@ -670,13 +672,9 @@ class Task(WithDB):
                     auth_token=auth_token,
                 )
                 v1episode = V1Episode.model_validate(episode_data)
-                print(
-                    f"got episode from remote: {v1episode.model_dump()}",
-                    flush=True,
-                )
                 logger.debug(f"got episode from remote: {v1episode.model_dump()}")
                 ep = Episode.from_v1(v1episode)
-                print(f"returning episode {ep.id} -- _get_episode", flush=True)
+                logger.debug(f"returning episode {ep.id} -- _get_episode")
                 return ep
 
             except Exception as e:
@@ -690,13 +688,13 @@ class Task(WithDB):
                 flush=True,
             )
             ep.save()
-            print(f"returning episode {ep.id} -- _get_episode", flush=True)
+            logger.debug(f"returning episode {ep.id} -- _get_episode")
             return ep
 
         episodes = Episode.find(id=id)
         if not episodes:
             raise ValueError(f"Episode by id '{id}' not found")
-        print(f"returning episode {episodes[0].id} -- _get_episode", flush=True)
+        logger.debug(f"returning episode {episodes[0].id} -- _get_episode")
         return episodes[0]
 
     def record_action(
