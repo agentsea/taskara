@@ -67,6 +67,7 @@ FINAL_STATUSES = [
     TaskStatus.CANCELED,
     TaskStatus.CANCELING,
     TaskStatus.TIMED_OUT,
+    TaskStatus.FINISHED,
 ]
 
 
