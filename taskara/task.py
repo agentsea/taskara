@@ -22,8 +22,8 @@ from skillpacks import (
     V1Action,
     V1Episode,
     V1ToolRef,
-    V1EnvState,
     Review,
+    EnvState,
 )
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
@@ -700,11 +700,11 @@ class Task(WithDB):
 
     def record_action(
         self,
-        state: V1EnvState,
+        state: EnvState,
         action: V1Action,
         tool: V1ToolRef,
         result: Optional[Any] = None,
-        end_state: Optional[V1EnvState] = None,
+        end_state: Optional[EnvState] = None,
         prompt: Optional[Prompt | str] = None,
         namespace: str = "default",
         metadata: dict = {},
