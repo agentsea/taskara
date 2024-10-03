@@ -197,7 +197,6 @@ def test_process_tracker_runtime():
                 public=True,
             ),
             response=RoleMessage(
-                id="123",
                 role="assistant",
                 text="This is a test response",
                 images=[],
