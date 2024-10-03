@@ -22,7 +22,6 @@ eval_task_association = Table(
     Column("task_id", String, ForeignKey("tasks.id"), primary_key=True),
 )
 
-
 # Association table for many-to-many between tasks and tags
 task_tag_association = Table(
     "task_tag_association",

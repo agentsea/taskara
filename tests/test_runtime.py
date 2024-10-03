@@ -5,7 +5,7 @@ import urllib.parse
 from mllm import Prompt, RoleMessage, RoleThread
 from namesgenerator import get_random_name
 from openai import BaseModel
-from skillpacks import ActionEvent, V1Action, V1EnvState
+from skillpacks import ActionEvent, V1Action, V1EnvState, EnvState
 from skillpacks.server.models import V1Episode, V1ActionEvents
 from toolfuse.models import V1ToolRef
 
@@ -245,7 +245,7 @@ def test_process_tracker_runtime():
 
         # Store an action event
         action_event = ActionEvent(
-            state=V1EnvState(images=["https://test.img"]),
+            state=EnvState(images=["https://test.img"]),
             action=V1Action(name="test", parameters={}),
             tool=V1ToolRef(module="test", type="test"),
             prompt=prompt,
@@ -294,7 +294,7 @@ def test_process_tracker_runtime():
         print("created a new task: ", new_task.id)
 
         action_event = ActionEvent(
-            state=V1EnvState(images=["https://test.img"]),
+            state=EnvState(images=["https://test.img"]),
             action=V1Action(name="test", parameters={}),
             tool=V1ToolRef(module="test", type="test"),
             prompt=prompt,
