@@ -65,6 +65,8 @@ task.post_message("assistant", 'My current screenshot', images=["b64img"], threa
 Store prompts used to accomplish the task
 
 ```python
+from mllm import RoleThread, RoleMessage
+
 thread = RoleThread()
 thread.post(role="system", msg="I am a helpful assistant")
 
