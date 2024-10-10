@@ -546,6 +546,30 @@ async def fail_all_actions(
     return
 
 
+@router.put("/v1/tasks/{task_id}/actions/{action_id}/hide")
+async def hide_action(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    action_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    if not task.episode:
+        raise HTTPException(status_code=404, detail="Task episode not found")
+
+    for action in task.episode.actions:
+        if action.id == action_id:
+            action.hidden = True
+            action.save()
+
+    task.save()
+
+    return
+
+
 @router.get("/v1/tasks/{task_id}/threads", response_model=V1RoleThreads)
 async def get_threads(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
