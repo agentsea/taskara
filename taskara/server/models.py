@@ -7,6 +7,7 @@ from mllm import V1Prompt
 from pydantic import BaseModel, Field
 from threadmem.server.models import V1RoleThread
 from skillpacks.review import ReviewerType, V1Review
+from skillpacks.reviewable import V1Reviewable
 
 
 class V1ReviewRequirement(BaseModel):
@@ -68,6 +69,7 @@ class V1Task(BaseModel):
     prompts: Optional[List[str]] = None
     reviews: List[V1Review] = []
     review_requirements: List[V1ReviewRequirement] = []
+    reviewables: List[V1Reviewable] = []
     assigned_to: Optional[str] = None
     assigned_type: Optional[str] = None
     created: float = Field(default_factory=time.time)

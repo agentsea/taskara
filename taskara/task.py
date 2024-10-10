@@ -24,6 +24,7 @@ from skillpacks import (
     V1ToolRef,
     Review,
     EnvState,
+    Reviewable,
 )
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
@@ -93,6 +94,7 @@ class Task(WithDB):
         assigned_type: Optional[str] = None,
         reviews: List[Review] = [],
         review_requirements: List[ReviewRequirement] = [],
+        reviewables: List[Reviewable] = [],
         error: Optional[str] = None,
         output: Optional[str] = None,
         expect: Optional[Type[BaseModel]] = None,
@@ -126,6 +128,7 @@ class Task(WithDB):
         for review in review_requirements:
             review.task_id = self._id
         self._review_requirements = review_requirements
+        self._reviewables = reviewables or []
         self._remote = remote
         self._prompts = prompts
         self._parent_id = parent_id
@@ -274,6 +277,14 @@ class Task(WithDB):
     @owner_id.setter
     def owner_id(self, value: Optional[str]):
         self._owner_id = value
+
+    @property
+    def reviewables(self) -> List[Reviewable]:
+        return self._reviewables
+
+    @reviewables.setter
+    def reviewables(self, value: List[Reviewable]):
+        self._reviewables = value
 
     @property
     def reviews(self) -> List[Review]:
@@ -445,6 +456,11 @@ class Task(WithDB):
 
         if not hasattr(self, "_episode") or not self._episode:
             raise ValueError("episode not set")
+        
+        reviewable_ids = []
+        for reviewable in self.reviewables:
+            reviewable_ids.append(reviewable.id)
+            reviewable.save()
 
         review_ids = []
         for review in self.reviews:
@@ -467,6 +483,7 @@ class Task(WithDB):
             project=self._project,
             expect=expect,
             reviews=json.dumps(review_ids),
+            reviewables= json.dumps(reviewable_ids),
             review_requirements=json.dumps(requirement_ids),
             status=self._status.value,
             created=self._created,
@@ -507,6 +524,9 @@ class Task(WithDB):
         review_ids = json.loads(str(record.reviews))
         reviews = [Review.find(id=id)[0] for id in review_ids]
 
+        reviewable_ids = json.loads(str(record.reviewables))
+        reviewables = [Reviewable.find(id=id)[0] for id in reviewable_ids]
+
         review_req_ids = json.loads(str(record.review_requirements))
         review_reqs = [ReviewRequirement.find(id=id)[0] for id in review_req_ids]
 
@@ -535,6 +555,7 @@ class Task(WithDB):
         obj._device_type = device_type
         obj._expect_schema = expect
         obj._reviews = reviews
+        obj._reviewables = reviewables
         obj._review_requirements = review_reqs
         obj._status = TaskStatus(record.status)
         obj._created = record.created
@@ -851,7 +872,8 @@ class Task(WithDB):
             Warning("episode not set")
             return False
         episode_satisfied = True
-        for action in episode.actions:
+        # TODO Come back here
+        for action in episode.actions: 
             action_satisfied = False
             for review in action.reviews:
                 if review.reviewer == user:
@@ -864,13 +886,14 @@ class Task(WithDB):
 
     def _review_satisfied(self, user: str) -> bool:
         review_satisfied = False
+        # TODO Come back here
         for review in self.reviews:
             if review.reviewer == user:
                 review_satisfied = True
                 break
         return review_satisfied
 
-    def update_pending_reviews(self) -> None:
+    def update_pending_reviews(self) -> None: # TODO come back here
         """Updates the pending reviewers table for the task"""
         revs = PendingReviewers()
 
@@ -1282,6 +1305,7 @@ class Task(WithDB):
             assigned_to=self._assigned_to,
             assigned_type=self._assigned_type,
             reviews=[r.to_v1() for r in self._reviews],
+            reviewables=[r.to_v1() for r in self._reviewables],
             review_requirements=[
                 review.to_v1() for review in self._review_requirements
             ],
@@ -1342,6 +1366,7 @@ class Task(WithDB):
         obj._assigned_to = v1.assigned_to
         obj._assigned_type = v1.assigned_type
         obj._reviews = [Review.from_v1(r) for r in v1.reviews]
+        obj._reviewables = [Reviewable.from_v1(r) for r in v1.reviewables]
         obj._review_requirements = [
             ReviewRequirement.from_v1(r) for r in v1.review_requirements
         ]
@@ -1420,6 +1445,7 @@ class Task(WithDB):
                         for requirement in v1.review_requirements
                     ]
                     self._reviews = [Review.from_v1(r) for r in v1.reviews]
+                    self._reviewables = [Reviewable.from_v1(r) for r in v1.reviewables]
                     self._episode = self._get_episode(
                         task_id=v1.id,
                         remote=self._remote,
@@ -1456,6 +1482,7 @@ class Task(WithDB):
             self._assigned_to = task._assigned_to
             self._assigned_type = task._assigned_type
             self._reviews = task._reviews
+            self._reviewables = task._reviewables
             self._review_requirements = task._review_requirements
             self._error = task._error
             self._output = task._output

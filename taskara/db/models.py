@@ -38,7 +38,6 @@ task_label_association = Table(
     Column("label_id", String, ForeignKey("labels.id"), primary_key=True),
 )
 
-
 class TagRecord(Base):
     __tablename__ = "tags"
 
@@ -81,7 +80,7 @@ class TaskRecord(Base):
     parameters = Column(String, nullable=True)
     version = Column(String, nullable=True)
     episode_id = Column(String, nullable=True)
-
+    reviewables = Column(Text, nullable=True)
     tags = relationship("TagRecord", secondary=task_tag_association, backref="tasks")
     labels = relationship(
         "LabelRecord", secondary=task_label_association, backref="tasks"
