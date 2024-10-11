@@ -1174,7 +1174,6 @@ class Task(WithDB):
     ) -> List["Task"]:
         if remote:
             logger.debug(f"finding remote tasks for: {remote}")
-            print("got here!")
             json_data = {**kwargs, "sort": "created_desc"}
             # Add "tags" only if it's not None
             if tags:
@@ -1190,7 +1189,6 @@ class Task(WithDB):
                 json_data=json_data,
                 auth_token=auth_token,
             )
-            print("in find", remote_response)
             tasks = V1Tasks(**remote_response)
             if remote_response is not None:
                 out = [
