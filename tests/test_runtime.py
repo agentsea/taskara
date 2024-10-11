@@ -104,6 +104,7 @@ def test_process_tracker_runtime():
         assert status == 200
         task = V1Task.model_validate(json.loads(text))
         assert task.id == task_id
+        assert task.assigned_to == "tom@myspace.com"
 
         # Check the review requirements
         status, text = server.call(
