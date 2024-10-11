@@ -1174,22 +1174,25 @@ class Task(WithDB):
     ) -> List["Task"]:
         if remote:
             logger.debug(f"finding remote tasks for: {remote}")
+            json_data = {**kwargs, "sort": "created_desc"}
+            # Add "tags" only if it's not None
+            if tags:
+                json_data["tags"] = tags
+
+            # Add "labels" only if it's not None
+            if labels:
+                json_data["labels"] = labels
             remote_response = cls._remote_request(
                 remote,
-                "GET",
-                "/v1/tasks",
-                json_data={
-                    **kwargs,
-                    "sort": "created_desc",
-                    "tags": tags,
-                    "labels": labels,
-                },
+                "POST",
+                "/v1/tasks/search",
+                json_data=json_data,
                 auth_token=auth_token,
             )
             tasks = V1Tasks(**remote_response)
             if remote_response is not None:
                 out = [
-                    cls.from_v1(record, kwargs["owner_id"]) for record in tasks.tasks
+                    cls.from_v1(record) for record in tasks.tasks
                 ]
                 for task in out:
                     task._remote = remote

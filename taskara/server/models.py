@@ -86,6 +86,34 @@ class V1Task(BaseModel):
     episode_id: Optional[str] = None
     auth_token: Optional[str] = None
 
+class V1SearchTask(BaseModel):
+    id: Optional[str] = None
+    description: Optional[str] = None
+    max_steps: Optional[int] = None
+    # device: Optional[V1Device]
+    # device_type: Optional[V1DeviceType]
+    status: Optional[str] = None
+    # threads: Optional[List[V1RoleThread]]
+    # prompts: Optional[List[str]]
+    # reviews: Optional[List[V1Review]]
+    # review_requirements: Optional[List[V1ReviewRequirement]]
+    assigned_to: Optional[str] = None
+    assigned_type: Optional[str] = None
+    created: Optional[float] = None
+    started: Optional[float] = None
+    completed: Optional[float] = None
+    error: Optional[str] = None
+    output: Optional[str] = None
+    # parameters: Optional[Dict[str, Any]]
+    version: Optional[str] = None
+    remote: Optional[str] = None
+    owner_id: Optional[str] = None
+    project: Optional[str] = None
+    parent_id: Optional[str] = None
+    tags: Optional[List[str]] = None
+    labels: Optional[Dict[str, str]] = None
+    episode_id: Optional[str] = None
+    auth_token: Optional[str] = None
 
 class V1Tasks(BaseModel):
     tasks: List[V1Task]

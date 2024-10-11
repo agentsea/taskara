@@ -1,9 +1,10 @@
 import logging
+import re
 from typing import Annotated, Optional, List
 import json
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from mllm import Prompt, V1Prompt
 from skillpacks import ActionEvent, Episode, Review
 from skillpacks.server.models import (
@@ -31,6 +32,7 @@ from taskara.server.models import (
     V1ReviewMany,
     V1PendingReviewers,
     V1PendingReviews,
+    V1SearchTask,
 )
 from taskara.review import PendingReviewers, ReviewRequirement
 
@@ -93,6 +95,17 @@ async def create_task(
 
     return task.to_v1()
 
+@router.post("/v1/tasks/search", response_model=V1Tasks)
+async def search_tasks(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    data: V1SearchTask,  # Accept the task_id in the body now
+):
+    # print(vars(data))
+    data_dict = data.model_dump(exclude_unset=True)
+    data_dict.setdefault("owner_id", current_user.email)
+    print(data_dict)
+    tasks = Task.find(**data_dict, tags=None, labels=None)
+    return V1Tasks(tasks=[task.to_v1() for task in tasks])
 
 @router.get("/v1/tasks", response_model=V1Tasks)
 async def get_tasks(
@@ -105,11 +118,14 @@ async def get_tasks(
     device_type: Optional[str] = Query(None),
     parent_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    task_id: Optional[str] = Query(None),
 ):
     filter_kwargs = {"owner_id": current_user.email}
 
     if assigned_to:
         filter_kwargs["assigned_to"] = assigned_to
+    if task_id:
+        filter_kwargs["id"] = task_id
     if assigned_type:
         filter_kwargs["assigned_type"] = assigned_type
     if parent_id:
@@ -545,13 +561,15 @@ async def fail_all_actions(
 
     return
 
-
+@router.put("/v1/tasks/{task_id}/actions/{action_id}/unhide")
 @router.put("/v1/tasks/{task_id}/actions/{action_id}/hide")
-async def hide_action(
+async def toggle_hide_action(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
+    request: Request,
 ):
+    hide_action = bool(re.match(r".*/hide$", request.url.path)) 
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -562,7 +580,7 @@ async def hide_action(
 
     for action in task.episode.actions:
         if action.id == action_id:
-            action.hidden = True
+            action.hidden = hide_action
             action.save()
 
     task.save()
