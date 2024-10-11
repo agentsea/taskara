@@ -1191,9 +1191,14 @@ class Task(WithDB):
             )
             tasks = V1Tasks(**remote_response)
             if remote_response is not None:
-                out = [
-                    cls.from_v1(record, kwargs["owner_id"]) for record in tasks.tasks
-                ]
+                if kwargs["owner_id"]:
+                    out = [
+                        cls.from_v1(record, kwargs["owner_id"]) for record in tasks.tasks
+                    ]
+                else:
+                    out = [
+                        cls.from_v1(record, kwargs["owner_id"]) for record in tasks.tasks
+                    ]
                 for task in out:
                     task._remote = remote
                     logger.debug(f"returning task: {task.__dict__}")

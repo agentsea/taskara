@@ -95,6 +95,20 @@ async def create_task(
 
     return task.to_v1()
 
+@router.get("/v1/tasks/remote_find", response_model=V1Tasks)
+async def remote_find(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    # data: V1SearchTask,  # Accept the task_id in the body now
+):
+    # print(vars(data))
+    tasks = Task.find(
+            remote="http://localhost:9070",
+            id="DP6XCfFJMHs2vCuquMqB6c",
+            auth_token="eyJhbGciOiJSUzI1NiIsImtpZCI6IjhkNzU2OWQyODJkNWM1Mzk5MmNiYWZjZWI2NjBlYmQ0Y2E1OTMxM2EiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiSmVmZnJleSBIdWNrYWJheSIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NMMHd4SzJtbk5fT2ZXTVkxdV9NOF95X3NMX1VwWTIybFVGNm5meUpXT29qVUZHWkE9czk2LWMiLCJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vYWdlbnRzZWEtZGV2IiwiYXVkIjoiYWdlbnRzZWEtZGV2IiwiYXV0aF90aW1lIjoxNzI4NTkwODU5LCJ1c2VyX2lkIjoiRWFDTVZjS3FGVlpoeUVSVERRTEpUTEpRVVd2MSIsInN1YiI6IkVhQ01WY0txRlZaaHlFUlREUUxKVExKUVVXdjEiLCJpYXQiOjE3Mjg2NTg4NDYsImV4cCI6MTcyODY2MjQ0NiwiZW1haWwiOiJqZWZmcmV5Lmh1Y2thYmF5QGtlbnRhdXJvcy5haSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7Imdvb2dsZS5jb20iOlsiMTA1MDg5ODU0MTE2ODk2NjA1Njk4Il0sImVtYWlsIjpbImplZmZyZXkuaHVja2FiYXlAa2VudGF1cm9zLmFpIl19LCJzaWduX2luX3Byb3ZpZGVyIjoiZ29vZ2xlLmNvbSJ9fQ.ckMqdLaaoKUz6wTReD-k6KUkT6im3DrgicpmYTz57HlJxql0muSZKf83WmODOtxaF7_Fvujfa-fdf-wFLi09dIA5tCIHb9coTFMEzN0SYzUoHulojZX-QIf2JntGrBnLJgdx3wXp-l9ZUfTM2Pu0yeqYRrBfgzITvddx1w7dsSLcJytC48Vt3l6Rlt_Av_yFGmFk23kbwuTmyPQd94-pLiFxRmkiFAZHnX7rvu8GyAToTeWKnU4e-OtDyXkkSB2ZAAOin7mojeA00A65JxQX6Pe0hA10bS8bBb_CXrzSZeyLqKQJgq2THG3LGdBiAbj3hO7QEDbuyXCCR8XPjrdUfQ",
+            owner_id=current_user.email
+        )
+    return V1Tasks(tasks=[task.to_v1() for task in tasks])
+
 @router.post("/v1/tasks/search", response_model=V1Tasks)
 async def search_tasks(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],

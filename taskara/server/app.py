@@ -77,7 +77,7 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("TASK_SERVER_PORT", "9070"))
+    port = int(os.getenv("TASK_SERVER_PORT", "9071"))
     reload = os.getenv("TASK_SERVER_RELOAD", "false") == "true"
 
     uvicorn.run(app="taskara.server.app:app", host="0.0.0.0", port=port, reload=reload)
