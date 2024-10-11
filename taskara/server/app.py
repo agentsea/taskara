@@ -31,9 +31,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     for error in exc.errors():
         field = ".".join(str(loc) for loc in error["loc"])
         msg = {"field": field, "message": error["msg"], "type": error["type"]}
-        print("\n\n!error: ", msg, "\nrequest data: ", str(request.body()), "\n")
+        body = await request.body()
+        print("\n\n!error: ", msg, "\nrequest data: ", body.decode(), "\n")
         access_logger.error(
-            f"Validation error for field {field}: {error['msg']} (type: {error['type']}, request data: {str(request.body())})"
+            f"Validation error for field {field}: {error['msg']} (type: {error['type']}, request data: {body.decode()})"
         )
         errors.append(msg)
     return JSONResponse(
