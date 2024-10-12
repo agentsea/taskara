@@ -1191,8 +1191,10 @@ class Task(WithDB):
             )
             tasks = V1Tasks(**remote_response)
             if remote_response is not None:
+                for task in tasks.tasks:
+                    task.remote = remote
                 out = [
-                    cls.from_v1(record, kwargs["owner_id"]) for record in tasks.tasks
+                    cls.from_v1(record, kwargs["owner_id"], auth_token) for record in tasks.tasks
                 ]
                 for task in out:
                     task._remote = remote
@@ -1354,7 +1356,6 @@ class Task(WithDB):
         obj._remote = v1.remote
         obj._parameters = v1.parameters
         obj._parent_id = v1.parent_id
-        obj._remote = v1.remote
         obj._owner_id = owner_id
         obj._project = v1.project
         obj._tags = v1.tags
