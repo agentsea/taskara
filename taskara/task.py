@@ -59,6 +59,7 @@ class TaskStatus(Enum):
     CANCELING = "canceling"
     CANCELED = "canceled"
     TIMED_OUT = "timed out"
+    REVIEW = "review"
 
 
 FINAL_STATUSES = [
