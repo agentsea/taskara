@@ -56,6 +56,7 @@ class TaskStatus(Enum):
     FAILED = "failed"
     ERROR = "error"
     WAITING = "waiting"
+    IN_QUEUE = "in queue"
     CANCELING = "canceling"
     CANCELED = "canceled"
     TIMED_OUT = "timed out"
