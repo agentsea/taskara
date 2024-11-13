@@ -3457,13 +3457,13 @@ files = [
 
 [[package]]
 name = "skillpacks"
-version = "0.1.72"
+version = "0.1.77"
 description = "Pluggable skills for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "skillpacks-0.1.72-py3-none-any.whl", hash = "sha256:1ee56bb951cd145039a3706eb3b1624f2455adfce75bf28fb2373ca4c99eabd1"},
-    {file = "skillpacks-0.1.72.tar.gz", hash = "sha256:981ab87a43db24da3c6ace509166c50d5bd5d3cde85b7ce677d9ef1b884d6fc2"},
+    {file = "skillpacks-0.1.77-py3-none-any.whl", hash = "sha256:fbc007c8af6ea76ef7291361d7e47b07dd78f0b47dba75aaecdc1c3bde9e3762"},
+    {file = "skillpacks-0.1.77.tar.gz", hash = "sha256:741684e2c3e1214f7bbc05f605216d6f060288e5d3b3f2e48a94b83654a9ba23"},
 ]
 
 [package.dependencies]
@@ -3671,6 +3671,7 @@ files = [
     {file = "tiktoken-0.8.0-cp310-cp310-win_amd64.whl", hash = "sha256:d8c2d0e5ba6453a290b86cd65fc51fedf247e1ba170191715b049dac1f628005"},
     {file = "tiktoken-0.8.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:d622d8011e6d6f239297efa42a2657043aaed06c4f68833550cac9e9bc723ef1"},
     {file = "tiktoken-0.8.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:2efaf6199717b4485031b4d6edb94075e4d79177a172f38dd934d911b588d54a"},
+    {file = "tiktoken-0.8.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5637e425ce1fc49cf716d88df3092048359a4b3bbb7da762840426e937ada06d"},
     {file = "tiktoken-0.8.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9fb0e352d1dbe15aba082883058b3cce9e48d33101bdaac1eccf66424feb5b47"},
     {file = "tiktoken-0.8.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:56edfefe896c8f10aba372ab5706b9e3558e78db39dd497c940b47bf228bc419"},
     {file = "tiktoken-0.8.0-cp311-cp311-win_amd64.whl", hash = "sha256:326624128590def898775b722ccc327e90b073714227175ea8febbc920ac0a99"},
@@ -4438,4 +4439,4 @@ runtime = ["docker", "google-auth", "google-cloud-container", "kubernetes"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "6a5f1b972ad59fef352bd895147290bae7c061eec44bdac3f7b52c427829a381"
+content-hash = "db7f96ce3809533a5f70b15fa37d27f8e7a84a834b6984fac6f40018d3730791"
