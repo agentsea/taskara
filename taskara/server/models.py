@@ -5,8 +5,8 @@ import shortuuid
 from devicebay import V1Device, V1DeviceType
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
-from threadmem.server.models import V1RoleThread
 from skillpacks.review import ReviewerType, V1Review
+from threadmem.server.models import V1RoleThread
 
 
 class V1ReviewRequirement(BaseModel):
@@ -37,6 +37,18 @@ class V1CreateReview(BaseModel):
     reviewer_type: str = ReviewerType.HUMAN.value
     reason: Optional[str] = None
     reviewer: Optional[str] = None
+
+
+class V1CreateAnnotationReview(BaseModel):
+    approved: bool
+    reviewer_type: str = ReviewerType.HUMAN.value
+    reason: Optional[str] = None
+    reviewer: Optional[str] = None
+    correction: Optional[str] = None
+
+
+class V1CreateAnnotationResponse(BaseModel):
+    id: str
 
 
 class V1ReviewMany(BaseModel):
@@ -86,6 +98,7 @@ class V1Task(BaseModel):
     episode_id: Optional[str] = None
     auth_token: Optional[str] = None
 
+
 class V1SearchTask(BaseModel):
     id: Optional[str] = None
     description: Optional[str] = None
@@ -114,6 +127,7 @@ class V1SearchTask(BaseModel):
     labels: Optional[Dict[str, str]] = None
     episode_id: Optional[str] = None
     auth_token: Optional[str] = None
+
 
 class V1Tasks(BaseModel):
     tasks: List[V1Task]

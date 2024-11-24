@@ -5,36 +5,36 @@ import urllib.parse
 from mllm import Prompt, RoleMessage, RoleThread
 from namesgenerator import get_random_name
 from openai import BaseModel
-from skillpacks import ActionEvent, V1Action, V1EnvState, EnvState
-from skillpacks.server.models import V1Episode, V1ActionEvents
+from skillpacks import ActionEvent, AnnotationReviewable, EnvState, V1Action, V1EnvState
+from skillpacks.server.models import V1ActionEvents, V1AnnotationReviewable, V1Episode
 from toolfuse.models import V1ToolRef
 
 from taskara import (
     Benchmark,
+    ReviewRequirement,
     Task,
+    TaskStatus,
     TaskTemplate,
     V1Benchmark,
     V1Task,
     V1TaskTemplate,
-    ReviewRequirement,
-    TaskStatus,
 )
 from taskara.runtime.process import ProcessConnectConfig, ProcessTrackerRuntime
 from taskara.server.models import (
     V1Benchmark,
     V1BenchmarkEval,
     V1Benchmarks,
+    V1CreateAnnotationReview,
+    V1CreateReview,
     V1DeviceType,
     V1Eval,
     V1Evals,
-    V1Tasks,
-    V1TaskTemplate,
-    V1CreateReview,
-    V1Prompt,
-    V1RoleThread,
     V1PendingReviewers,
     V1PendingReviews,
-    V1CreateReview,
+    V1Prompt,
+    V1RoleThread,
+    V1Tasks,
+    V1TaskTemplate,
 )
 
 
@@ -268,6 +268,68 @@ def test_process_tracker_runtime():
         events = V1ActionEvents.model_validate(json.loads(resp_text))
         print("events: ", events)
         assert len(events.events) > 0
+
+        # First, find the `action_id` from previously stored action event
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{task_id}/actions",
+            method="GET",
+        )
+        assert status == 200
+        events = V1ActionEvents.model_validate_json(resp_text)
+        assert len(events.events) > 0
+        action_id = events.events[0].id
+
+        # Create an annotation
+        annotation = V1AnnotationReviewable(
+            key="test",
+            value="This is a test annotation",
+            annotator="tester@example.com",
+        )
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{task_id}/actions/{action_id}/annotations",
+            method="POST",
+            data=annotation.model_dump(),
+        )
+        assert status == 200
+
+        # Retrieve the `annotation_id`
+        # Assuming the response contains the `annotation_id` or we can fetch it
+        resp_json = json.loads(resp_text)
+        annotation_id = resp_json.get("id")  # Adjust based on actual response
+
+        # Now, review the annotation
+        review = V1CreateAnnotationReview(
+            approved=True,
+            reviewer="reviewer@example.com",
+            reviewer_type="human",
+            reason="Annotation looks good",
+        )
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{task_id}/actions/{action_id}/annotations/{annotation_id}/review",
+            method="POST",
+            data=review.model_dump(),
+        )
+        assert status == 200
+
+        # Verify that the annotation review was recorded properly
+        # Fetch the action event and check the annotation's review status
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{task_id}/actions",
+            method="GET",
+        )
+        assert status == 200
+        events = V1ActionEvents.model_validate_json(resp_text)
+        action_event = next((e for e in events.events if e.id == action_id), None)
+        assert action_event is not None
+
+        # Assuming `action_event` has a `reviewables` field which contains annotations
+        annotation = next(
+            (a for a in action_event.reviewables if a.id == annotation_id), None
+        )
+        assert annotation is not None
+        assert annotation.reviews[0].approved
+        assert annotation.reviews[0].reviewer == "reviewer@example.com"
+        assert annotation.reviews[0].reason == "Annotation looks good"
 
         print("getting remote task")
         found_task = Task.get(id=task_id, remote=f"http://localhost:{server.port}")
