@@ -1,40 +1,43 @@
+import json
 import logging
 import re
-from typing import Annotated, Optional, List
-import json
 import time
+from typing import Annotated, List, Optional
 
+import shortuuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from mllm import Prompt, V1Prompt
 from skillpacks import ActionEvent, Episode, Review
+from skillpacks.reviewable import AnnotationReviewable, V1AnnotationReviewable
 from skillpacks.server.models import (
-    V1ActionEvents,
-    V1ActionEvent,
-    V1Episode,
     ReviewerType,
+    V1ActionEvent,
+    V1ActionEvents,
+    V1Episode,
     V1Review,
 )
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
-import shortuuid
 
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
+from taskara.review import PendingReviewers, ReviewRequirement
 from taskara.server.models import (
     V1AddThread,
+    V1CreateAnnotationResponse,
+    V1CreateAnnotationReview,
+    V1CreateReview,
+    V1PendingReviewers,
+    V1PendingReviews,
     V1PostMessage,
     V1Prompts,
     V1RemoveThread,
+    V1ReviewMany,
+    V1SearchTask,
     V1Task,
     V1Tasks,
     V1TaskUpdate,
     V1UserProfile,
-    V1CreateReview,
-    V1ReviewMany,
-    V1PendingReviewers,
-    V1PendingReviews,
-    V1SearchTask,
 )
-from taskara.review import PendingReviewers, ReviewRequirement
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -95,6 +98,7 @@ async def create_task(
 
     return task.to_v1()
 
+
 @router.post("/v1/tasks/search", response_model=V1Tasks)
 async def search_tasks(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
@@ -106,6 +110,7 @@ async def search_tasks(
     print(data_dict)
     tasks = Task.find(**data_dict, tags=None, labels=None)
     return V1Tasks(tasks=[task.to_v1() for task in tasks])
+
 
 @router.get("/v1/tasks", response_model=V1Tasks)
 async def get_tasks(
@@ -532,6 +537,69 @@ async def fail_action(
     return
 
 
+@router.post(
+    "/v1/tasks/{task_id}/actions/{action_id}/annotations",
+    response_model=V1CreateAnnotationResponse,
+)
+async def create_annotation(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    action_id: str,
+    annotation: V1AnnotationReviewable,
+):
+    tasks = Task.find(id=task_id, owner_id=current_user.email)
+    if not tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    events = ActionEvent.find(id=action_id)
+    if not events:
+        raise HTTPException(status_code=404, detail="Event not found")
+    event = events[0]
+
+    annotation = AnnotationReviewable(
+        key=annotation.key,
+        value=annotation.value,
+        annotator=annotation.annotator,
+        annotator_type=annotation.annotator_type,
+    )
+
+    event.reviewables.append(annotation)
+
+    event.save()
+    return V1CreateAnnotationResponse(id=annotation.id)
+
+
+@router.post(
+    "/v1/tasks/{task_id}/actions/{action_id}/annotations/{annotation_id}/review"
+)
+async def review_annotation(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+    action_id: str,
+    annotation_id: str,
+    review: V1CreateAnnotationReview,
+):
+    tasks = Task.find(id=task_id, owner_id=current_user.email)
+    if not tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    found = AnnotationReviewable.find(id=annotation_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="Reviewable not found")
+    reviewable = found[0]
+
+    reviewable.post_review(
+        approved=review.approved,
+        reviewer=review.reviewer,  # type: ignore
+        reviewer_type=review.reviewer_type,
+        reason=review.reason,
+        correction=review.correction,
+    )
+
+    reviewable.save()
+    return
+
+
 @router.post("/v1/tasks/{task_id}/fail_actions")
 async def fail_all_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
@@ -561,6 +629,7 @@ async def fail_all_actions(
 
     return
 
+
 @router.put("/v1/tasks/{task_id}/actions/{action_id}/unhide")
 @router.put("/v1/tasks/{task_id}/actions/{action_id}/hide")
 async def toggle_hide_action(
@@ -569,7 +638,7 @@ async def toggle_hide_action(
     action_id: str,
     request: Request,
 ):
-    hide_action = bool(re.match(r".*/hide$", request.url.path)) 
+    hide_action = bool(re.match(r".*/hide$", request.url.path))
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
