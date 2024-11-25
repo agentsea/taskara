@@ -494,7 +494,11 @@ async def approve_all_actions(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
 
-    task.episode.approve_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
+    task.episode.approve_all(
+        reviewer=review.reviewer,
+        reviewer_type=reviewer_type,
+        approve_hidden=review.approve_hidden,
+    )  # type: ignore
     task.save()
     task.update_pending_reviews()
 
@@ -624,6 +628,26 @@ async def fail_all_actions(
         )
 
     task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
+    task.save()
+    task.update_pending_reviews()
+
+    return
+
+
+@router.delete("/v1/tasks/{task_id}/actions")
+async def delete_all_actions(
+    current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
+    task_id: str,
+):
+    task = Task.find(id=task_id, owner_id=current_user.email)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task = task[0]
+
+    if not task.episode:
+        raise HTTPException(status_code=404, detail="Task episode not found")
+
+    task.episode.delete_all_actions()
     task.save()
     task.update_pending_reviews()
 
