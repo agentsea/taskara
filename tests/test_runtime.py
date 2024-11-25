@@ -402,6 +402,25 @@ def test_process_tracker_runtime():
         print("events: ", events)
         assert len(events.events) > 0
 
+        # Delete all actions associated with the task
+        status, _ = server.call(
+            path=f"/v1/tasks/{new_task.id}/actions",
+            method="DELETE",
+        )
+        print("delete all actions status: ", status)
+        assert status == 200
+
+        # Verify that no actions remain
+        status, resp_text = server.call(
+            path=f"/v1/tasks/{new_task.id}/actions",
+            method="GET",
+        )
+        print("get actions after deletion status: ", status)
+        assert status == 200
+        events = V1ActionEvents.model_validate(json.loads(resp_text))
+        print("events after deletion: ", events)
+        assert len(events.events) == 0
+
         # Benchmarks
         tpl0 = TaskTemplate(
             description="A good test 0",

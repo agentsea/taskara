@@ -1765,13 +1765,13 @@ adal = ["adal (>=1.0.2)"]
 
 [[package]]
 name = "litellm"
-version = "1.52.14"
+version = "1.52.15"
 description = "Library to easily interface with LLM API providers"
 optional = false
 python-versions = "!=2.7.*,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,!=3.7.*,>=3.8"
 files = [
-    {file = "litellm-1.52.14-py3-none-any.whl", hash = "sha256:688a084ff02796dcee172e0c2e31170eaba756bafbd1b95646fd59df33a316b8"},
-    {file = "litellm-1.52.14.tar.gz", hash = "sha256:255211fd5943da2982bccb52f7f58d816cadbb2cc45c9a805ff391b6b503504a"},
+    {file = "litellm-1.52.15-py3-none-any.whl", hash = "sha256:8a2d8e2526c5e7afb3006b0214d3c348778462fefafd582fd76bb7f5c35d28d0"},
+    {file = "litellm-1.52.15.tar.gz", hash = "sha256:11a61b1b033ddff9d480da66c00acc9d3e4fbfeed166d1b0de8eda16c684116e"},
 ]
 
 [package.dependencies]
@@ -2139,13 +2139,13 @@ signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
 
 [[package]]
 name = "openai"
-version = "1.55.0"
+version = "1.55.1"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "openai-1.55.0-py3-none-any.whl", hash = "sha256:446e08918f8dd70d8723274be860404c8c7cc46b91b93bbc0ef051f57eb503c1"},
-    {file = "openai-1.55.0.tar.gz", hash = "sha256:6c0975ac8540fe639d12b4ff5a8e0bf1424c844c4a4251148f59f06c4b2bd5db"},
+    {file = "openai-1.55.1-py3-none-any.whl", hash = "sha256:d10d96a4f9dc5f05d38dea389119ec8dcd24bc9698293c8357253c601b4a77a5"},
+    {file = "openai-1.55.1.tar.gz", hash = "sha256:471324321e7739214f16a544e801947a046d3c5d516fae8719a317234e4968d3"},
 ]
 
 [package.dependencies]
@@ -3428,13 +3428,13 @@ files = [
 
 [[package]]
 name = "skillpacks"
-version = "0.1.85"
+version = "0.1.87"
 description = "Pluggable skills for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "skillpacks-0.1.85-py3-none-any.whl", hash = "sha256:935f0192f8be8f2a2a456c380a0e37a94a3d484f52119ea9a4f7714729419955"},
-    {file = "skillpacks-0.1.85.tar.gz", hash = "sha256:8acb66a8e995b06bad5c61bf420f779912e5225a7c8c40f3eb9440b2640cac13"},
+    {file = "skillpacks-0.1.87-py3-none-any.whl", hash = "sha256:1ff06bb0db8c6a1ead3eac4948ba22060ef02bc3f50f07e6f8a5acc11129af6b"},
+    {file = "skillpacks-0.1.87.tar.gz", hash = "sha256:3ddbf0b843a55268efec9c7c443b99b026f0a6bf88200345f19c50e83b960206"},
 ]
 
 [package.dependencies]
@@ -4421,4 +4421,4 @@ runtime = ["docker", "google-auth", "google-cloud-container", "kubernetes"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f36bd5db9dfa9404c10c0380999d209a1039ebad5373f092c3fde761a3f13cc3"
+content-hash = "01bc405f477cde21feceda992d24331d56aeaf78da256f7580e2c2ca4796e936"
