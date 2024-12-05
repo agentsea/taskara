@@ -1388,6 +1388,57 @@ class Task(WithDB):
 
         return obj
 
+    @classmethod
+    def from_v1_remote_actions(
+        cls,
+        v1: V1Task,
+        owner_id: Optional[str] = None,
+        auth_token: Optional[str] = None,
+    ) -> "Task":
+        ## the purpose of this function is just to get a task to make remote action calls. we want to eliminate unnecesary remote calls
+        
+        obj = cls.__new__(cls)  # Create a new instance without calling __init__
+
+        owner_id = owner_id if owner_id else v1.owner_id
+        if not owner_id:
+            raise ValueError("Owner id is required in v1 or as parameter")
+
+        status = v1.status if v1.status else "defined"
+        task_status = TaskStatus(status)
+
+        # Manually set attributes on the object
+        obj._id = v1.id if v1.id else shortuuid.uuid()
+        obj._owner_id = owner_id
+        obj._description = v1.description
+        obj._max_steps = v1.max_steps
+        obj._device = v1.device
+        obj._device_type = v1.device_type
+        obj._expect_schema = v1.expect_schema
+        obj._status = task_status
+        obj._created = v1.created
+        obj._started = v1.started
+        obj._completed = v1.completed
+        obj._assigned_to = v1.assigned_to
+        obj._assigned_type = v1.assigned_type
+        obj._reviews = []
+        obj._review_requirements = []
+        obj._error = v1.error
+        obj._output = v1.output
+        obj._version = v1.version
+        obj._remote = v1.remote
+        obj._parameters = v1.parameters
+        obj._parent_id = v1.parent_id
+        obj._owner_id = owner_id
+        obj._project = v1.project
+        obj._tags = v1.tags
+        obj._labels = v1.labels
+        obj._auth_token = auth_token if auth_token else v1.auth_token
+        obj._episode = Episode() #episode doesn't matter for only remote action calls
+        obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
+        obj._prompts = []
+
+        return obj
+
     def refresh(self) -> None:
         logger.debug(f"refreshing task {self._id}")
         if hasattr(self, "_remote") and self._remote:
