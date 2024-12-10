@@ -85,3 +85,34 @@ def test_post_message():
 
     assert message.text == "Test Message 5"
     assert message.role == "moderator"
+
+def test_find_many_lite():
+    # Create three tasks
+    task1 = Task(description="Task 1", owner_id="owner1", id="task1")
+    task2 = Task(description="Task 2", owner_id="owner1", id="task2")
+    task3 = Task(description="Task 3", owner_id="owner2", id="task3")
+
+    # Manually save tasks to ensure they're committed to the database
+    # Note: The Task class's save method should handle this, so just calling them is enough.
+    task1.save()
+    task2.save()
+    task3.save()
+
+    # Test retrieving tasks by IDs
+    found_tasks = Task.find_many_lite(task_ids=["task1", "task2"])
+    print(f"found tasks {found_tasks}", flush=True)
+    # Verify that only task1 and task2 are returned
+    assert len(found_tasks) == 2
+    found_ids = [t.id for t in found_tasks]
+    assert "task1" in found_ids
+    assert "task2" in found_ids
+    assert "task3" not in found_ids
+
+    # Test retrieving a subset
+    found_task = Task.find_many_lite(task_ids=["task1"])
+    assert len(found_task) == 1
+    assert found_task[0].id == "task1"
+
+    # Test retrieving no tasks
+    found_none = Task.find_many_lite(task_ids=["nonexistent"])
+    assert len(found_none) == 0

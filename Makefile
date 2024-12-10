@@ -1,4 +1,4 @@
 .PHONY: test
 test:
 	rm -rf .agentsea
-	poetry run pytest -v
+	poetry run pytest -v -s

@@ -562,6 +562,73 @@ class Task(WithDB):
         obj._episode = episode
 
         return obj
+    
+    @classmethod
+    def from_record_lite(cls, record: TaskRecord) -> "Task":
+        # not optional??
+        thread_ids = json.loads(str(record.threads))
+        threads = [RoleThread.find(id=thread_id)[0] for thread_id in thread_ids]
+
+        # prompt_ids = json.loads(str(record.prompts))
+        # prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
+
+        review_ids = json.loads(str(record.reviews))
+        reviews = [Review.find(id=id)[0] for id in review_ids]
+
+        review_req_ids = json.loads(str(record.review_requirements))
+        review_reqs = [ReviewRequirement.find(id=id)[0] for id in review_req_ids]
+
+        parameters = json.loads(str(record.parameters))
+
+        # episodes = Episode.find(id=record.episode_id)
+        # if not episodes:
+        #     raise ValueError("episode not found")
+        # episode = episodes[0]
+
+        device_type = None
+        if record.device_type:  # type: ignore
+            device_type = V1DeviceType.model_validate_json(str(record.device_type))
+
+        expect = None
+        if record.expect:  # type: ignore
+            expect = json.loads(str(record.expect))
+
+        obj = cls.__new__(cls)
+        obj._id = record.id
+        obj._owner_id = record.owner_id
+        obj._description = record.description
+        obj._max_steps = record.max_steps
+        obj._project = record.project
+        obj._device = cls.decrypt_device(record.device)  # type: ignore
+        obj._device_type = device_type
+        obj._expect_schema = expect
+        obj._reviews = reviews
+        obj._review_requirements = review_reqs
+        obj._status = TaskStatus(record.status)
+        obj._created = record.created
+        obj._started = record.started
+        obj._completed = record.completed
+        obj._assigned_to = record.assigned_to
+        obj._assigned_type = record.assigned_type
+        obj._error = record.error
+        obj._output = record.output
+        obj._threads = threads
+        # obj._prompts = prompts
+        obj._prompts = []
+        obj._parent_id = record.parent_id
+        obj._version = record.version
+        obj._parameters = parameters
+        obj._remote = None
+
+        # Load tags
+        obj._tags = [tag.tag for tag in record.tags]
+
+        # Load labels
+        obj._labels = {label.key: label.value for label in record.labels}
+
+        # obj._episode = episode
+
+        return obj
 
     def post_message(
         self,
@@ -1164,6 +1231,37 @@ class Task(WithDB):
             for db in self.get_db():
                 db.merge(self.to_record())
                 db.commit()
+
+    @classmethod
+    def find_many_lite(
+        cls,
+        task_ids: List[str],
+        tags: Optional[List[str]] = None,
+        labels: Optional[Dict[str, str]] = None,
+    ) -> List["Task"]:
+        for db in cls.get_db():
+            query = db.query(TaskRecord)
+
+            # Apply task-specific filters from kwargs (e.g., owner_id)
+            query = query.filter(TaskRecord.id.in_(task_ids))
+
+            # Handle tag filtering if tags are provided
+            if tags:
+                query = query.join(TaskRecord.tags).filter(TagRecord.tag.in_(tags))
+
+            # Handle label filtering if labels are provided
+            if labels:
+                for key, value in labels.items():
+                    query = query.join(TaskRecord.labels).filter(
+                        LabelRecord.key == key, LabelRecord.value == value
+                    )
+
+            # Apply sorting by creation date and retrieve the records
+            records = query.order_by(TaskRecord.created.desc()).all()
+
+            return [cls.from_record_lite(record) for record in records]
+
+        raise ValueError("No session")
 
     @classmethod
     def find(
