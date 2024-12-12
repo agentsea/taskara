@@ -18,29 +18,29 @@ from PIL import Image
 from pydantic import BaseModel
 from skillpacks import (
     ActionEvent,
+    EnvState,
     Episode,
+    Review,
     V1Action,
     V1Episode,
     V1ToolRef,
-    Review,
-    EnvState,
 )
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
 
 from .config import GlobalConfig
 from .db.conn import WithDB
-from .db.models import TaskRecord, LabelRecord, TagRecord
+from .db.models import LabelRecord, TagRecord, TaskRecord
 from .env import HUB_API_KEY_ENV
+from .flag import Flag
 from .img import image_to_b64
+from .review import PendingReviewers, ReviewRequirement
 from .server.models import (
     V1Prompts,
     V1Task,
     V1Tasks,
     V1TaskUpdate,
 )
-from .flag import Flag
-from .review import ReviewRequirement, PendingReviewers
 
 T = TypeVar("T", bound="Task")
 logger = logging.getLogger(__name__)
@@ -562,7 +562,7 @@ class Task(WithDB):
         obj._episode = episode
 
         return obj
-    
+
     @classmethod
     def from_record_lite(cls, record: TaskRecord) -> "Task":
         # not optional??
@@ -780,6 +780,7 @@ class Task(WithDB):
         owner_id: Optional[str] = None,
         model: Optional[str] = None,
         agent_id: Optional[str] = None,
+        action_opts: Optional[List[V1Action]] = None,
     ) -> ActionEvent:
         if not owner_id:
             owner_id = self.owner_id
@@ -802,6 +803,7 @@ class Task(WithDB):
                     owner_id=owner_id,
                     model=model,
                     agent_id=agent_id,
+                    action_opts=action_opts,
                 )
                 data = event.to_v1().model_dump()
                 self._remote_request(
@@ -832,6 +834,7 @@ class Task(WithDB):
             owner_id=owner_id,
             model=model,
             agent_id=agent_id,
+            action_opts=action_opts,
         )
 
     @property
@@ -1294,7 +1297,8 @@ class Task(WithDB):
                 for task in tasks.tasks:
                     task.remote = remote
                 out = [
-                    cls.from_v1(record, kwargs["owner_id"], auth_token) for record in tasks.tasks
+                    cls.from_v1(record, kwargs["owner_id"], auth_token)
+                    for record in tasks.tasks
                 ]
                 for task in out:
                     task._remote = remote
@@ -1494,7 +1498,7 @@ class Task(WithDB):
         auth_token: Optional[str] = None,
     ) -> "Task":
         ## the purpose of this function is just to get a task to make remote action calls. we want to eliminate unnecesary remote calls
-        
+
         obj = cls.__new__(cls)  # Create a new instance without calling __init__
 
         owner_id = owner_id if owner_id else v1.owner_id
@@ -1531,7 +1535,7 @@ class Task(WithDB):
         obj._tags = v1.tags
         obj._labels = v1.labels
         obj._auth_token = auth_token if auth_token else v1.auth_token
-        obj._episode = Episode() #episode doesn't matter for only remote action calls
+        obj._episode = Episode()  # episode doesn't matter for only remote action calls
         obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
         obj._prompts = []
 
