@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from typing import Annotated, List, Optional
-
+import asyncio
 import shortuuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from mllm import Prompt, V1Prompt
@@ -377,6 +377,8 @@ async def record_action(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
+
+    
 
     task.record_action_event(ActionEvent.from_v1(data))
     return

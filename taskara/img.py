@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import re
 from io import BytesIO
@@ -6,7 +7,7 @@ import os
 import secrets
 import string
 import tempfile
-from typing import List
+from typing import List, Sequence
 
 from google.cloud import storage
 from PIL import Image
@@ -117,7 +118,7 @@ def upload_image_to_gcs(image_data: bytes, mime_type: str) -> str:
     return blob.public_url
 
 
-def convert_images(images: List[str | Image.Image]) -> List[str]:
+def convert_images(images: Sequence[str | Image.Image]) -> List[str]:
     sa = os.getenv(STORAGE_SA_JSON_ENV)
     new_imgs: List[str] = []
     if sa:
@@ -153,3 +154,53 @@ def convert_images(images: List[str | Image.Image]) -> List[str]:
                 new_imgs.append(b64_img)
 
     return new_imgs
+
+
+async def process_image_async(img: str | Image.Image) -> str:
+    """Async function to process a single image when service account is set."""
+    if isinstance(img, Image.Image):
+        return image_to_b64(img)
+    elif isinstance(img, str):
+        if img.startswith("data:"):
+            print("convert_images function, uploading img to gcs", flush=True)
+            mime_type, base64_data = parse_image_data(img)
+            image_data = base64.b64decode(base64_data)
+            # Offload blocking upload to a thread
+            return await asyncio.to_thread(upload_image_to_gcs, image_data, mime_type)
+        elif img.startswith("https://"):
+            return img
+        else:
+            print("convert_images function, uploading img to gcs in else", flush=True)
+            # Load image in a thread
+            loaded_img = await asyncio.to_thread(Image.open, img)
+            b64_img = image_to_b64(loaded_img)
+            mime_type, base64_data = parse_image_data(b64_img)
+            image_data = base64.b64decode(base64_data)
+            return await asyncio.to_thread(upload_image_to_gcs, image_data, mime_type)
+    else:
+        raise ValueError("unknown image type")
+
+
+async def convert_images_async(images: Sequence[str | Image.Image]) -> List[str]:
+    sa = os.getenv(STORAGE_SA_JSON_ENV)
+    if sa:
+        tasks = [process_image_async(img) for img in images]
+        results = await asyncio.gather(*tasks)
+        return list(results)
+    else:
+        # No service account, run synchronously
+        new_imgs: List[str] = []
+        for img in images:
+            print("convert_images function, proceeding with non gcs key path", flush=True)
+            if isinstance(img, Image.Image):
+                new_imgs.append(image_to_b64(img))
+            elif isinstance(img, str):
+                if img.startswith("data:") or img.startswith("https://"):
+                    new_imgs.append(img)
+                else:
+                    loaded_img = Image.open(img)
+                    b64_img = image_to_b64(loaded_img)
+                    new_imgs.append(b64_img)
+            else:
+                raise ValueError("unknown image type")
+        return new_imgs
