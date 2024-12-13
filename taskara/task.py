@@ -1238,15 +1238,23 @@ class Task(WithDB):
     @classmethod
     def find_many_lite(
         cls,
-        task_ids: List[str],
+        task_ids: Optional[List[str]] = None,
+        owner_id: Optional[str] = None,
         tags: Optional[List[str]] = None,
         labels: Optional[Dict[str, str]] = None,
     ) -> List["Task"]:
         for db in cls.get_db():
             query = db.query(TaskRecord)
-
-            # Apply task-specific filters from kwargs (e.g., owner_id)
-            query = query.filter(TaskRecord.id.in_(task_ids))
+            if task_ids:
+                if owner_id:
+                    # Apply task-specific filters from kwargs (e.g., owner_id)
+                    query = query.filter(TaskRecord.id.in_(task_ids), TaskRecord.owner_id==owner_id)
+                else:
+                    query = query.filter(TaskRecord.id.in_(task_ids))
+            elif owner_id:
+                query = query.filter(TaskRecord.owner_id==owner_id)
+            else:
+                raise ValueError("find_many_lite function requires either a list or ownerid or both but not neither")
 
             # Handle tag filtering if tags are provided
             if tags:

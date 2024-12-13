@@ -144,7 +144,9 @@ async def get_tasks(
         filter_kwargs["device_type"] = device_type
 
     labels_dict = json.loads(labels) if labels else None
-
+    if not any([task_id, assigned_to, assigned_type, device, device_type, parent_id, status]):
+        tasks = Task.find_many_lite(owner_id=current_user.email, tags=tags, labels=labels_dict)
+        return V1Tasks(tasks=[task.to_v1() for task in tasks])
     tasks = Task.find(**filter_kwargs, tags=tags, labels=labels_dict)
     return V1Tasks(tasks=[task.to_v1() for task in tasks])
 
