@@ -601,7 +601,7 @@ async def review_annotation(
     action_id: str,
     annotation_id: str,
     review: V1CreateAnnotationReview,
-) -> None:
+):
     tasks = Task.find(id=task_id, owner_id=current_user.email)
     if not tasks:
         raise HTTPException(status_code=404, detail="Task not found")
