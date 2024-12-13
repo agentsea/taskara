@@ -1254,7 +1254,7 @@ class Task(WithDB):
             elif owner_id:
                 query = query.filter(TaskRecord.owner_id==owner_id)
             else:
-                raise ValueError("find_many_lite function requires either a list or ownerid or both but not neither")
+                return []
 
             # Handle tag filtering if tags are provided
             if tags:
