@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from typing import Annotated, List, Optional
-
+import asyncio
 import shortuuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from mllm import Prompt, V1Prompt
@@ -16,6 +16,7 @@ from skillpacks.server.models import (
     V1Episode,
     V1Review,
 )
+from taskara.img import convert_images_async
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
 
 from taskara import Task, TaskStatus
@@ -377,6 +378,24 @@ async def record_action(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
+    action = data
+    state = action.state
+    endState = action.end_state
+    # Collect async tasks without using asyncio.to_thread, since convert_images is async
+    imageTasks = []
+    if state.images:
+        imageTasks.append(convert_images_async(state.images))
+    if endState and endState.images:
+        imageTasks.append(convert_images_async(endState.images))
+
+    if imageTasks:
+        results = await asyncio.gather(*imageTasks)
+        endStateIdx = 0
+        if state.images:
+            state.images = results[0]
+            endStateIdx += 1
+        if endState and endState.images:
+            endState.images = results[endStateIdx]
 
     task.record_action_event(ActionEvent.from_v1(data))
     return
