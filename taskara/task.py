@@ -25,6 +25,7 @@ from skillpacks import (
     V1Episode,
     V1ToolRef,
 )
+from skillpacks.action_opts import ActionOpt
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
 
@@ -780,7 +781,7 @@ class Task(WithDB):
         owner_id: Optional[str] = None,
         model: Optional[str] = None,
         agent_id: Optional[str] = None,
-        action_opts: Optional[List[V1Action]] = None,
+        action_opts: Optional[List[ActionOpt]] = None,
     ) -> ActionEvent:
         if not owner_id:
             owner_id = self.owner_id
@@ -1248,11 +1249,13 @@ class Task(WithDB):
             if task_ids:
                 if owner_id:
                     # Apply task-specific filters from kwargs (e.g., owner_id)
-                    query = query.filter(TaskRecord.id.in_(task_ids), TaskRecord.owner_id==owner_id)
+                    query = query.filter(
+                        TaskRecord.id.in_(task_ids), TaskRecord.owner_id == owner_id
+                    )
                 else:
                     query = query.filter(TaskRecord.id.in_(task_ids))
             elif owner_id:
-                query = query.filter(TaskRecord.owner_id==owner_id)
+                query = query.filter(TaskRecord.owner_id == owner_id)
             else:
                 return []
 
