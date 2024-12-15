@@ -1926,17 +1926,17 @@ files = [
 
 [[package]]
 name = "mllm"
-version = "0.1.53"
+version = "0.1.56"
 description = "Multimodal Large Language Models"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "mllm-0.1.53-py3-none-any.whl", hash = "sha256:d4f0b12c51b326f247a43f527a49e815e3905284a2c57c54f7d3e1e01505decb"},
-    {file = "mllm-0.1.53.tar.gz", hash = "sha256:05c6e2e98f369c407471861473aa21bed96291cf76cb0917f491f11e40a4d0ef"},
+    {file = "mllm-0.1.56-py3-none-any.whl", hash = "sha256:c8142ba49f1a468d7ef632886a438898fad0c59617e44c1746a9604e40c2a360"},
+    {file = "mllm-0.1.56.tar.gz", hash = "sha256:845a7bde5fc053d4d3df50897e5d9adfce1502b2efd01690d38a0c8b16b135bc"},
 ]
 
 [package.dependencies]
-litellm = ">=1.49.4,<2.0.0"
+litellm = ">=1.55.2,<2.0.0"
 numpy = "1.26.4"
 tenacity = ">=8.2.3,<9.0.0"
 threadmem = ">=0.2.37,<0.3.0"
@@ -3482,18 +3482,18 @@ files = [
 
 [[package]]
 name = "skillpacks"
-version = "0.1.92"
+version = "0.1.93"
 description = "Pluggable skills for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "skillpacks-0.1.92-py3-none-any.whl", hash = "sha256:74d8020d91f83822d1218b2e1474c462f237607fe1c0befe6b8cffd507041089"},
-    {file = "skillpacks-0.1.92.tar.gz", hash = "sha256:ae3a49bb01f4f5f317ace812ed22e325130dd930a972163c951aa726f65af3ae"},
+    {file = "skillpacks-0.1.93-py3-none-any.whl", hash = "sha256:793efaf3540be396e1a899c5597fcc03d48a2391c1b9dbe2adc650eb8a82c767"},
+    {file = "skillpacks-0.1.93.tar.gz", hash = "sha256:516000b601cc27aa8d1f5502b50e90e61c872138548026ea6d4e6791c9b36340"},
 ]
 
 [package.dependencies]
 devicebay = ">=0.1.28,<0.2.0"
-mllm = ">=0.1.53,<0.2.0"
+mllm = ">=0.1.56,<0.2.0"
 pydantic = ">=2.6.1,<3.0.0"
 shortuuid = ">=1.0.13,<2.0.0"
 sqlalchemy = ">=2.0.27,<3.0.0"
@@ -4393,4 +4393,4 @@ runtime = ["docker", "google-auth", "google-cloud-container", "kubernetes"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "b8bd0ce25eb0295eb6bae902bd0bdc80f237514c946cb72a0b4f8a163137b81e"
+content-hash = "986187235578e17363abf0d13e3db8ec93dfe89c4df0d16c6d54a68597c157e2"
