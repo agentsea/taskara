@@ -55,6 +55,7 @@ class V1ReviewMany(BaseModel):
     reviewer: Optional[str] = None
     reviewer_type: str = ReviewerType.HUMAN.value
     approve_hidden: bool = False
+    fail_hidden: bool = False
 
 
 class V1TaskUpdate(BaseModel):

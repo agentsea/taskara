@@ -500,6 +500,7 @@ async def approve_prior_actions(
         action_id,
         reviewer=review.reviewer,
         reviewer_type=reviewer_type,  # type: ignore
+        approve_hidden=review.approve_hidden
     )
     task.save()
     task.update_pending_reviews()
@@ -526,6 +527,11 @@ async def approve_all_actions(
         raise HTTPException(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
+    
+    if not review.reviewer:
+        review.reviewer = current_user.email
+        if not review.reviewer:
+            raise ValueError("no review user")
 
     task.episode.approve_all(
         reviewer=review.reviewer,
@@ -660,7 +666,7 @@ async def fail_all_actions(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
 
-    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type)  # type: ignore
+    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type, fail_hidden=review.fail_hidden)  # type: ignore
     task.save()
     task.update_pending_reviews()
 
