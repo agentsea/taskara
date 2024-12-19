@@ -230,20 +230,32 @@ async def review_task(
     if not data.reviewer:
         data.reviewer = current_user.email
 
-    # Create review
-    review = V1Review(
-        id=shortuuid.uuid(),
-        reviewer=data.reviewer,  # type: ignore
-        approved=data.approved,
-        reviewer_type=reviewer_type,
-        resource_type="task",
-        resource_id=task_id,
-        created=time.time(),
-        reason=data.reason,
-    )
-    task._reviews.append(Review.from_v1(review))
+    reviewerReview = False
+    updatedReviewID = None
+    for review in task._reviews:
+        if review.reviewer == data.reviewer and review.reviewer_type == reviewer_type:
+            updatedReviewID = review.id
+            reviewerReview = True
+            review.approved = data.approved
+            review.reason = data.reason
+            review.updated = time.time()
 
-    logger.debug(f"saving review {review.id} to task")
+    if not reviewerReview:
+        # Create review
+        review = V1Review(
+            id=shortuuid.uuid(),
+            reviewer=data.reviewer,  # type: ignore
+            approved=data.approved,
+            reviewer_type=reviewer_type,
+            resource_type="task",
+            resource_id=task_id,
+            created=time.time(),
+            reason=data.reason,
+        )
+        task._reviews.append(Review.from_v1(review))
+        updatedReviewID = review.id
+
+    logger.debug(f"saving review {updatedReviewID} to task")
     task.save()
     task.update_pending_reviews()
 
