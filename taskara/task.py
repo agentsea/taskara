@@ -62,6 +62,7 @@ class TaskStatus(Enum):
     CANCELED = "canceled"
     TIMED_OUT = "timed out"
     REVIEW = "review"
+    EXCLUDE = "exclude"
 
 
 FINAL_STATUSES = [
@@ -71,6 +72,7 @@ FINAL_STATUSES = [
     TaskStatus.CANCELING,
     TaskStatus.TIMED_OUT,
     TaskStatus.FINISHED,
+    TaskStatus.EXCLUDE
 ]
 
 
