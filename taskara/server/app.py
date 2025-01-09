@@ -1,24 +1,26 @@
 import logging.config
 import os
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from ..db.redis_connection import init_redis_pool, close_redis_pool
+
 
 from .router.benchmarks import router as benchmarks_router
 from .router.tasks import router as tasks_router
 
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("initializing boot sequence...")
-    print("boot sequence initialized.")
+    print("initializing boot sequence...", flush=True)
+    print("boot sequence initialized.", flush=True)
+    await init_redis_pool()
     yield
-
+    print("Shutting Down Fast API server Taskara", flush=True)
+    await close_redis_pool()
 
 app = FastAPI(lifespan=lifespan)
 

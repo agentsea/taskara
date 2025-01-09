@@ -18,6 +18,7 @@ from skillpacks.server.models import (
 )
 from taskara.img import convert_images_async
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
+from taskara.db.redis_connection import get_redis_client
 
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
@@ -391,6 +392,7 @@ async def record_action(
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    redis_client = get_redis_client()
     task = task[0]
     action = data
     state = action.state
@@ -412,6 +414,11 @@ async def record_action(
             endState.images = results[endStateIdx]
 
     task.record_action_event(ActionEvent.from_v1(data))
+    if redis_client:
+        event_message = action.model_dump_json()
+        await redis_client.xadd("events:action_recorded", {"message": event_message}, "*")
+    else:
+        print("no redis client")
     return
 
 
