@@ -6,6 +6,7 @@ from devicebay import V1Device, V1DeviceType
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
 from skillpacks.review import ReviewerType, V1Review
+from skillpacks.base import V1ActionEvent
 from threadmem.server.models import V1RoleThread
 
 
@@ -18,7 +19,6 @@ class V1ReviewRequirement(BaseModel):
     agents: Optional[List[str]] = None
     groups: Optional[List[str]] = None
     number_required: int = 2
-
 
 class V1PendingReviewers(BaseModel):
     """Pending reviewers for a task"""
@@ -37,7 +37,14 @@ class V1CreateReview(BaseModel):
     reviewer_type: str = ReviewerType.HUMAN.value
     reason: Optional[str] = None
     reviewer: Optional[str] = None
+    correction: Optional[str] = None
 
+class V1ActionRecordedMessage(BaseModel):
+    action: V1ActionEvent
+    event_number: int = Field(
+        ...,
+        description="The index of the action event in order on the task. The first action event will be 0",
+    )
 
 class V1CreateAnnotationReview(BaseModel):
     approved: bool

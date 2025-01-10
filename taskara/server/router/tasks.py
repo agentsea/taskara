@@ -24,10 +24,12 @@ from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
 from taskara.review import PendingReviewers, ReviewRequirement
 from taskara.server.models import (
+    V1ActionRecordedMessage,
     V1AddThread,
     V1CreateAnnotationResponse,
     V1CreateAnnotationReview,
     V1CreateReview,
+    V1CreateReviewAction,
     V1PendingReviewers,
     V1PendingReviews,
     V1PostMessage,
@@ -415,10 +417,13 @@ async def record_action(
 
     task.record_action_event(ActionEvent.from_v1(data))
     if redis_client:
-        event_message = action.model_dump_json()
-        await redis_client.xadd("events:action_recorded", {"message": event_message}, "*")
+        if task.episode:
+            event_message = V1ActionRecordedMessage(action=action, event_number=len(task.episode.actions)).model_dump_json()
+            await redis_client.xadd("events:action_recorded", {"message": event_message}, "*")
+        else:
+            raise ValueError("No Episode on task!")
     else:
-        print("no redis client")
+        print("no redis client", flush=True)
     return
 
 
@@ -443,7 +448,7 @@ async def approve_action(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
-    review: V1CreateReview,
+    review: V1CreateReviewAction,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -556,7 +561,7 @@ async def fail_action(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
     action_id: str,
-    review: V1CreateReview,
+    review: V1CreateReviewAction,
 ):
     task = Task.find(id=task_id, owner_id=current_user.email)
     if not task:
@@ -580,6 +585,7 @@ async def fail_action(
         reviewer=review.reviewer,  # type: ignore
         reviewer_type=reviewer_type,
         reason=review.reason,
+        correction=review.correction,
     )
     task.save()
     task.update_pending_reviews()

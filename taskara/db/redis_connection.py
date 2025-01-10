@@ -15,7 +15,9 @@ async def init_redis_pool():
     if redis_url:
         # Create a Redis connection pool
         redis_pool = redis.ConnectionPool.from_url(redis_url, max_connections=10)
-        print("Redis connection pool initialized.")
+        print("Redis connection pool initialized.", flush=True)
+    else:
+        print("No Redis URL", flush=True)
 
 def get_redis_client():
     """Get a Redis client from the connection pool."""
