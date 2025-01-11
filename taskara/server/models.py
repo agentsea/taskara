@@ -288,6 +288,7 @@ class V1BoundingBoxFlag(BaseModel):
 
 class V1ActionRecordedMessage(BaseModel):
     action: V1ActionEvent
+    prevAction: Optional[V1ActionEvent] = None
     task: V1Task
     event_number: int = Field(
         ...,

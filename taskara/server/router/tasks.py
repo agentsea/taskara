@@ -418,7 +418,9 @@ async def record_action(
     task.record_action_event(ActionEvent.from_v1(data))
     if redis_client:
         if task.episode:
-            event_message = V1ActionRecordedMessage(action=action, event_number=len(task.episode.actions), task=task.to_v1()).model_dump_json()
+            actions_length = len(task.episode.actions)
+            prevAction = task.episode.actions[actions_length - 2].to_v1() if actions_length > 1 else None
+            event_message = V1ActionRecordedMessage(prevAction=prevAction, action=action, event_number=actions_length, task=task.to_v1()).model_dump_json()
             await redis_client.xadd(stream_action_recorded, {"message": event_message}, "*")
         else:
             raise ValueError("No Episode on task!")
