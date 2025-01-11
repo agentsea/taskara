@@ -6,7 +6,7 @@ from devicebay import V1Device, V1DeviceType
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
 from skillpacks.review import ReviewerType, V1Review
-from skillpacks.base import V1ActionEvent
+from skillpacks.base import V1ActionEvent, V1Action
 from threadmem.server.models import V1RoleThread
 
 
@@ -37,14 +37,13 @@ class V1CreateReview(BaseModel):
     reviewer_type: str = ReviewerType.HUMAN.value
     reason: Optional[str] = None
     reviewer: Optional[str] = None
-    correction: Optional[str] = None
 
-class V1ActionRecordedMessage(BaseModel):
-    action: V1ActionEvent
-    event_number: int = Field(
-        ...,
-        description="The index of the action event in order on the task. The first action event will be 0",
-    )
+class V1CreateReviewAction(BaseModel):
+    approved: bool
+    reviewer_type: str = ReviewerType.HUMAN.value
+    reason: Optional[str] = None
+    reviewer: Optional[str] = None
+    correction: Optional[V1Action] = None
 
 class V1CreateAnnotationReview(BaseModel):
     approved: bool
@@ -280,10 +279,17 @@ class V1BoundingBox(BaseModel):
     y0: int
     y1: int
 
-
 class V1BoundingBoxFlag(BaseModel):
     """A bounding box"""
 
     img: str
     target: str
     bbox: V1BoundingBox
+
+class V1ActionRecordedMessage(BaseModel):
+    action: V1ActionEvent
+    task: V1Task
+    event_number: int = Field(
+        ...,
+        description="The index of the action event in order on the task. The first action event will be 0",
+    )
