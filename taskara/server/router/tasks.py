@@ -1,9 +1,10 @@
+import asyncio
 import json
 import logging
 import re
 import time
 from typing import Annotated, List, Optional
-import asyncio
+
 import shortuuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from mllm import Prompt, V1Prompt
@@ -16,12 +17,12 @@ from skillpacks.server.models import (
     V1Episode,
     V1Review,
 )
-from taskara.img import convert_images_async
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
 from taskara.db.redis_connection import get_redis_client, stream_action_recorded
 
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
+from taskara.img import convert_images_async
 from taskara.review import PendingReviewers, ReviewRequirement
 from taskara.server.models import (
     V1ActionRecordedMessage,
@@ -147,8 +148,12 @@ async def get_tasks(
         filter_kwargs["device_type"] = device_type
 
     labels_dict = json.loads(labels) if labels else None
-    if not any([task_id, assigned_to, assigned_type, device, device_type, parent_id, status]):
-        tasks = Task.find_many_lite(owner_id=current_user.email, tags=tags, labels=labels_dict)
+    if not any(
+        [task_id, assigned_to, assigned_type, device, device_type, parent_id, status]
+    ):
+        tasks = Task.find_many_lite(
+            owner_id=current_user.email, tags=tags, labels=labels_dict
+        )
         return V1Tasks(tasks=[task.to_v1() for task in tasks])
     tasks = Task.find(**filter_kwargs, tags=tags, labels=labels_dict)
     return V1Tasks(tasks=[task.to_v1() for task in tasks])
@@ -646,13 +651,28 @@ async def review_annotation(
         raise HTTPException(status_code=404, detail="Reviewable not found")
     reviewable = found[0]
 
-    reviewable.post_review(
-        approved=review.approved,
-        reviewer=review.reviewer,  # type: ignore
-        reviewer_type=review.reviewer_type,
-        reason=review.reason,
-        correction=review.correction,
-    )
+    # Check if the user has already placed a review
+    existing_review = None
+    for r in reviewable.reviews:
+        if r.reviewer == current_user.email:
+            existing_review = r
+            break
+
+    if existing_review:
+        # User has already reviewed; override the existing review
+        existing_review.approved = review.approved
+        existing_review.reviewer_type = review.reviewer_type
+        existing_review.reason = review.reason
+        existing_review.correction = review.correction
+    else:
+        # Add a new review
+        reviewable.post_review(
+            approved=review.approved,
+            reviewer=current_user.email,
+            reviewer_type=review.reviewer_type,
+            reason=review.reason,
+            correction=review.correction,
+        )
 
     reviewable.save()
     return
