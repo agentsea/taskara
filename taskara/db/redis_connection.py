@@ -7,6 +7,8 @@ redis_pool: redis.ConnectionPool | None = None
 redis_client: redis.Redis | None = None
 redis_url = os.environ.get("REDIS_CACHE_STORAGE", None)
 
+# store stream names here
+stream_action_recorded = "events:action_recorded"
 
 async def init_redis_pool():
     """Initialize the Redis connection pool."""

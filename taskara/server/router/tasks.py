@@ -18,7 +18,7 @@ from skillpacks.server.models import (
 )
 from taskara.img import convert_images_async
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
-from taskara.db.redis_connection import get_redis_client
+from taskara.db.redis_connection import get_redis_client, stream_action_recorded
 
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
@@ -419,7 +419,7 @@ async def record_action(
     if redis_client:
         if task.episode:
             event_message = V1ActionRecordedMessage(action=action, event_number=len(task.episode.actions), task=task.to_v1()).model_dump_json()
-            await redis_client.xadd("events:action_recorded", {"message": event_message}, "*")
+            await redis_client.xadd(stream_action_recorded, {"message": event_message}, "*")
         else:
             raise ValueError("No Episode on task!")
     else:
