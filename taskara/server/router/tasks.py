@@ -633,18 +633,13 @@ async def create_annotation(
 
 
 @router.post(
-    "/v1/tasks/{task_id}/actions/{action_id}/annotations/{annotation_id}/review"
+    "/v1/annotations/{annotation_id}/review"
 )
 async def review_annotation(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
-    task_id: str,
-    action_id: str,
     annotation_id: str,
     review: V1CreateAnnotationReview,
 ):
-    tasks = Task.find(id=task_id, owner_id=current_user.email)
-    if not tasks:
-        raise HTTPException(status_code=404, detail="Task not found")
 
     found = AnnotationReviewable.find(id=annotation_id)
     if not found:
@@ -668,7 +663,7 @@ async def review_annotation(
         # Add a new review
         reviewable.post_review(
             approved=review.approved,
-            reviewer=current_user.email,
+            reviewer=review.reviewer if review.reviewer else current_user.email, # type: ignore
             reviewer_type=review.reviewer_type,
             reason=review.reason,
             correction=review.correction,

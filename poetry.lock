@@ -3500,13 +3500,13 @@ files = [
 
 [[package]]
 name = "skillpacks"
-version = "0.1.100"
+version = "0.1.101"
 description = "Pluggable skills for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "skillpacks-0.1.100-py3-none-any.whl", hash = "sha256:f0d0f849618b175fcb4f6b783ad6c379c9832b893715bd9f64c524c8fe88c862"},
-    {file = "skillpacks-0.1.100.tar.gz", hash = "sha256:5dafdb7b31f49044c874ea2f9223d273d57edf5adaed9d002793703126000e38"},
+    {file = "skillpacks-0.1.101-py3-none-any.whl", hash = "sha256:5f1e5bcfdebe8a04f2deb8185e241bb4e8fb7cc71efc037d607a2923841e3b9b"},
+    {file = "skillpacks-0.1.101.tar.gz", hash = "sha256:f9d0d27869ecb72e3823e0b654cf902ed29efa1db5152987c5812614234dbe9f"},
 ]
 
 [package.dependencies]
@@ -4412,4 +4412,4 @@ runtime = ["docker", "google-auth", "google-cloud-container", "kubernetes"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "216d22e7fa97a0c97fd33906d3bd8607e4bb1734db0f8a7b8ef596bb4dfbc38c"
+content-hash = "eb88082ea43e40d66a3575e4618242699a48ba6c135996b18efb111564f920b9"
