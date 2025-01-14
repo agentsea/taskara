@@ -18,10 +18,10 @@ from skillpacks.server.models import (
     V1Review,
 )
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
-from taskara.db.redis_connection import get_redis_client, stream_action_recorded
 
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
+from taskara.db.redis_connection import get_redis_client, stream_action_recorded
 from taskara.img import convert_images_async
 from taskara.review import PendingReviewers, ReviewRequirement
 from taskara.server.models import (
@@ -200,6 +200,8 @@ async def update_task(
         task.status = TaskStatus(data.status)
     if data.assigned_to:
         task.assigned_to = data.assigned_to
+    if data.assigned_type:
+        task.assigned_type = data.assigned_type
     if data.error:
         task.error = data.error
     if data.output:
@@ -424,9 +426,20 @@ async def record_action(
     if redis_client:
         if task.episode:
             actions_length = len(task.episode.actions)
-            prevAction = task.episode.actions[actions_length - 2].to_v1() if actions_length > 1 else None
-            event_message = V1ActionRecordedMessage(prevAction=prevAction, action=action, event_number=actions_length, task=task.to_v1()).model_dump_json()
-            await redis_client.xadd(stream_action_recorded, {"message": event_message}, "*")
+            prevAction = (
+                task.episode.actions[actions_length - 2].to_v1()
+                if actions_length > 1
+                else None
+            )
+            event_message = V1ActionRecordedMessage(
+                prevAction=prevAction,
+                action=action,
+                event_number=actions_length,
+                task=task.to_v1(),
+            ).model_dump_json()
+            await redis_client.xadd(
+                stream_action_recorded, {"message": event_message}, "*"
+            )
         else:
             raise ValueError("No Episode on task!")
     else:
@@ -519,7 +532,7 @@ async def approve_prior_actions(
         action_id,
         reviewer=review.reviewer,
         reviewer_type=reviewer_type,  # type: ignore
-        approve_hidden=review.approve_hidden
+        approve_hidden=review.approve_hidden,
     )
     task.save()
     task.update_pending_reviews()
@@ -546,7 +559,7 @@ async def approve_all_actions(
         raise HTTPException(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
-    
+
     if not review.reviewer:
         review.reviewer = current_user.email
         if not review.reviewer:
@@ -632,15 +645,12 @@ async def create_annotation(
     return V1CreateAnnotationResponse(id=annotation.id)
 
 
-@router.post(
-    "/v1/annotations/{annotation_id}/review"
-)
+@router.post("/v1/annotations/{annotation_id}/review")
 async def review_annotation(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     annotation_id: str,
     review: V1CreateAnnotationReview,
 ):
-
     found = AnnotationReviewable.find(id=annotation_id)
     if not found:
         raise HTTPException(status_code=404, detail="Reviewable not found")
@@ -663,7 +673,7 @@ async def review_annotation(
         # Add a new review
         reviewable.post_review(
             approved=review.approved,
-            reviewer=review.reviewer if review.reviewer else current_user.email, # type: ignore
+            reviewer=review.reviewer if review.reviewer else current_user.email,  # type: ignore
             reviewer_type=review.reviewer_type,
             reason=review.reason,
             correction=review.correction,
@@ -696,7 +706,11 @@ async def fail_all_actions(
             status_code=400, detail="Invalid reviewer type, can be 'human' or 'agent'"
         )
 
-    task.episode.fail_all(reviewer=review.reviewer, reviewer_type=reviewer_type, fail_hidden=review.fail_hidden)  # type: ignore
+    task.episode.fail_all(
+        reviewer=review.reviewer,
+        reviewer_type=reviewer_type,
+        fail_hidden=review.fail_hidden,
+    )  # type: ignore
     task.save()
     task.update_pending_reviews()
 

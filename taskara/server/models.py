@@ -5,8 +5,8 @@ import shortuuid
 from devicebay import V1Device, V1DeviceType
 from mllm import V1Prompt
 from pydantic import BaseModel, Field
+from skillpacks.base import V1Action, V1ActionEvent
 from skillpacks.review import ReviewerType, V1Review
-from skillpacks.base import V1ActionEvent, V1Action
 from threadmem.server.models import V1RoleThread
 
 
@@ -19,6 +19,7 @@ class V1ReviewRequirement(BaseModel):
     agents: Optional[List[str]] = None
     groups: Optional[List[str]] = None
     number_required: int = 2
+
 
 class V1PendingReviewers(BaseModel):
     """Pending reviewers for a task"""
@@ -38,12 +39,14 @@ class V1CreateReview(BaseModel):
     reason: Optional[str] = None
     reviewer: Optional[str] = None
 
+
 class V1CreateReviewAction(BaseModel):
     approved: bool
     reviewer_type: str = ReviewerType.HUMAN.value
     reason: Optional[str] = None
     reviewer: Optional[str] = None
     correction: Optional[V1Action] = None
+
 
 class V1CreateAnnotationReview(BaseModel):
     approved: bool
@@ -71,6 +74,7 @@ class V1TaskUpdate(BaseModel):
     error: Optional[str] = None
     output: Optional[str] = None
     assigned_to: Optional[str] = None
+    assigned_type: Optional[str] = None
     completed: Optional[float] = None
     version: Optional[str] = None
     set_labels: Optional[Dict[str, str]] = None
@@ -279,12 +283,14 @@ class V1BoundingBox(BaseModel):
     y0: int
     y1: int
 
+
 class V1BoundingBoxFlag(BaseModel):
     """A bounding box"""
 
     img: str
     target: str
     bbox: V1BoundingBox
+
 
 class V1ActionRecordedMessage(BaseModel):
     action: V1ActionEvent
