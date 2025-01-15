@@ -72,7 +72,7 @@ FINAL_STATUSES = [
     TaskStatus.CANCELING,
     TaskStatus.TIMED_OUT,
     TaskStatus.FINISHED,
-    TaskStatus.EXCLUDE
+    TaskStatus.EXCLUDE,
 ]
 
 
@@ -1245,6 +1245,7 @@ class Task(WithDB):
         owner_id: Optional[str] = None,
         tags: Optional[List[str]] = None,
         labels: Optional[Dict[str, str]] = None,
+        statuses: Optional[List[str]] = None,
     ) -> List["Task"]:
         for db in cls.get_db():
             query = db.query(TaskRecord)
@@ -1259,7 +1260,11 @@ class Task(WithDB):
             elif owner_id:
                 query = query.filter(TaskRecord.owner_id == owner_id)
             else:
-                return []
+                pass
+
+            # Add filtering by statuses if provided
+            if statuses:
+                query = query.filter(TaskRecord.status.in_(statuses))
 
             # Handle tag filtering if tags are provided
             if tags:
