@@ -198,9 +198,9 @@ async def update_task(
         task.description = data.description
     if data.status:
         task.status = TaskStatus(data.status)
-    if data.assigned_to:
+    if data.assigned_to is not None:
         task.assigned_to = data.assigned_to
-    if data.assigned_type:
+    if data.assigned_type is not None:
         task.assigned_type = data.assigned_type
     if data.error:
         task.error = data.error
