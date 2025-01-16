@@ -1247,6 +1247,8 @@ class Task(WithDB):
         labels: Optional[Dict[str, str]] = None,
         statuses: Optional[List[str]] = None,
     ) -> List["Task"]:
+        if not task_ids:
+            return []
         for db in cls.get_db():
             query = db.query(TaskRecord)
             if task_ids:
