@@ -569,9 +569,10 @@ class Task(WithDB):
     @classmethod
     def from_record_lite(cls, record: TaskRecord) -> "Task":
         # not optional??
+        # threads = []
         thread_ids = json.loads(str(record.threads))
         threads = [RoleThread.find(id=thread_id)[0] for thread_id in thread_ids]
-
+        
         # prompt_ids = json.loads(str(record.prompts))
         # prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
@@ -1247,8 +1248,6 @@ class Task(WithDB):
         labels: Optional[Dict[str, str]] = None,
         statuses: Optional[List[str]] = None,
     ) -> List["Task"]:
-        if not task_ids:
-            return []
         for db in cls.get_db():
             query = db.query(TaskRecord)
             if task_ids:
