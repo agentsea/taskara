@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import copy
 import hashlib
@@ -1242,7 +1241,7 @@ class Task(WithDB):
                 db.commit()
 
     @classmethod
-    async def find_many_lite(
+    def find_many_lite(
         cls,
         task_ids: Optional[List[str]] = None,
         owner_id: Optional[str] = None,
@@ -1291,20 +1290,14 @@ class Task(WithDB):
 
             # Time how long it takes to load reviews & requirements
             load_start_time = time.time()
-            # run next two queries in parallel
-            reviews_future = asyncio.to_thread(
-                Review.find_many,
+
+            reviews_list = Review.find_many(
                 resource_ids=task_ids,
-                resource_type=Resource.TASK.value,
+                resource_type=Resource.TASK.value
             )
-            rr_future = asyncio.to_thread(
-                ReviewRequirement.find_many,
-                task_ids=task_ids,
-            )
-
-            reviews_list, rr_list = await asyncio.gather(reviews_future, rr_future)
-
             reviews_dict = {rev.id: rev for rev in reviews_list}
+
+            rr_list = ReviewRequirement.find_many(task_ids=task_ids)
             rr_dict = {rr.id: rr for rr in rr_list}
 
             load_end_time = time.time()
