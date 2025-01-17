@@ -8,7 +8,7 @@ import time
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, TypeVar
-
+from sqlalchemy.orm import joinedload, contains_eager
 import requests
 import shortuuid
 from cryptography.fernet import Fernet
@@ -1272,7 +1272,14 @@ class Task(WithDB):
 
             # Handle tag filtering if tags are provided
             if tags:
-                query = query.join(TaskRecord.tags).filter(TagRecord.tag.in_(tags))
+                query = (
+                    query.join(TaskRecord.tags)
+                        .filter(TagRecord.tag.in_(tags))
+                        .options(contains_eager(TaskRecord.tags)) # no lazy loading
+                )
+            else:
+                # No tag-based filtering, but we still eager-load to avoid lazy loads:
+                query = query.options(joinedload(TaskRecord.tags))
 
             # Handle label filtering if labels are provided
             if labels:
@@ -1280,6 +1287,10 @@ class Task(WithDB):
                     query = query.join(TaskRecord.labels).filter(
                         LabelRecord.key == key, LabelRecord.value == value
                     )
+                    query = query.options(contains_eager(TaskRecord.labels)) # no lazy loading
+            else:
+                # No label-based filtering, so we do a joinedload to eager-load
+                query = query.options(joinedload(TaskRecord.labels))
 
             # Apply sorting by creation date and retrieve the records
             records = query.order_by(TaskRecord.created.desc()).all()
