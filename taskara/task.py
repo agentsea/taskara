@@ -577,12 +577,12 @@ class Task(WithDB):
         # prompt_ids = json.loads(str(record.prompts))
         # prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
-        review_ids = json.loads(str(record.reviews))
-        taskReviews = [reviews[id] for id in review_ids]
-
-        reviewRequirements_ids = json.loads(str(record.review_requirements))
-        taskReviewRequirements = [reviewRequirements[id] for id in reviewRequirements_ids]
-
+        # review_ids = json.loads(str(record.reviews))
+        # taskReviews = [reviews[id] for id in review_ids]
+        taskReviews = []
+        # reviewRequirements_ids = json.loads(str(record.review_requirements))
+        # taskReviewRequirements = [reviewRequirements[id] for id in reviewRequirements_ids]
+        taskReviewRequirements = []
         parameters = json.loads(str(record.parameters))
 
         # episodes = Episode.find(id=record.episode_id)
@@ -591,8 +591,8 @@ class Task(WithDB):
         # episode = episodes[0]
 
         device_type = None
-        if record.device_type:  # type: ignore
-            device_type = V1DeviceType.model_validate_json(str(record.device_type))
+        # if record.device_type:  # type: ignore
+        #     device_type = V1DeviceType.model_validate_json(str(record.device_type))
 
         expect = None
         if record.expect:  # type: ignore
@@ -604,7 +604,7 @@ class Task(WithDB):
         obj._description = record.description
         obj._max_steps = record.max_steps
         obj._project = record.project
-        obj._device = cls.decrypt_device(record.device)  # type: ignore
+        obj._device = None #cls.decrypt_device(record.device)  # type: ignore
         obj._device_type = device_type
         obj._expect_schema = expect
         obj._reviews = taskReviews
