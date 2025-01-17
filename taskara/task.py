@@ -1249,11 +1249,15 @@ class Task(WithDB):
         labels: Optional[Dict[str, str]] = None,
         statuses: Optional[List[str]] = None,
     ) -> List["Task"]:
+        print("[find_many_lite] Starting query...")
+        start_time = time.time()
+
         for db in cls.get_db():
+            query_start_time = time.time()
+
             query = db.query(TaskRecord)
             if task_ids:
                 if owner_id:
-                    # Apply task-specific filters from kwargs (e.g., owner_id)
                     query = query.filter(
                         TaskRecord.id.in_(task_ids), TaskRecord.owner_id == owner_id
                     )
@@ -1261,8 +1265,6 @@ class Task(WithDB):
                     query = query.filter(TaskRecord.id.in_(task_ids))
             elif owner_id:
                 query = query.filter(TaskRecord.owner_id == owner_id)
-            else:
-                pass
 
             # Add filtering by statuses if provided
             if statuses:
@@ -1282,31 +1284,35 @@ class Task(WithDB):
             # Apply sorting by creation date and retrieve the records
             records = query.order_by(TaskRecord.created.desc()).all()
 
-            # if we decide it is better to go by ids
-            # all_review_ids = set()
-            # all_review_req_ids = set()
-            # for record in records:
-            #     # Parse reviews
-            #     review_ids = json.loads(str(record.reviews))
-            #     for rev_id in review_ids:
-            #         all_review_ids.add(rev_id)
-            #     # Parse review requirements
-            #     rr_ids = json.loads(str(record.review_requirements))
-            #     for req_id in rr_ids:
-            #         all_review_req_ids.add(req_id)
+            query_end_time = time.time()
+            print(f"[find_many_lite] Query execution time: {query_end_time - query_start_time:.4f} seconds")
+            print(f"[find_many_lite] Number of records found: {len(records)}")
 
-            reviews_dict = {}
+            # Time how long it takes to load reviews & requirements
+            load_start_time = time.time()
+
             reviews_list = Review.find_many(
                 resource_ids=task_ids,
                 resource_type=Resource.TASK.value
             )
             reviews_dict = {rev.id: rev for rev in reviews_list}
 
-            rr_dict = {}
             rr_list = ReviewRequirement.find_many(task_ids=task_ids)
             rr_dict = {rr.id: rr for rr in rr_list}
 
-            return [cls.from_record_lite(record, reviews_dict, rr_dict) for record in records]
+            load_end_time = time.time()
+            print(f"[find_many_lite] Loading reviews & reqs took: {load_end_time - load_start_time:.4f} seconds")
+
+            # Construct tasks (lite)
+            creation_start_time = time.time()
+            tasks = [cls.from_record_lite(record, reviews_dict, rr_dict) for record in records]
+            creation_end_time = time.time()
+            print(f"[find_many_lite] Creating tasks took: {creation_end_time - creation_start_time:.4f} seconds")
+
+            total_time = time.time() - start_time
+            print(f"[find_many_lite] Total time so far: {total_time:.4f} seconds", flush=True)
+
+            return tasks
 
         raise ValueError("No session")
 
