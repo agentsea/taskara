@@ -577,12 +577,12 @@ class Task(WithDB):
         # prompt_ids = json.loads(str(record.prompts))
         # prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
-        # review_ids = json.loads(str(record.reviews))
-        # taskReviews = [reviews[id] for id in review_ids]
-        taskReviews = []
-        # reviewRequirements_ids = json.loads(str(record.review_requirements))
-        # taskReviewRequirements = [reviewRequirements[id] for id in reviewRequirements_ids]
-        taskReviewRequirements = []
+        review_ids = json.loads(str(record.reviews))
+        taskReviews = [reviews[id] for id in review_ids]
+        # taskReviews = []
+        reviewRequirements_ids = json.loads(str(record.review_requirements))
+        taskReviewRequirements = [reviewRequirements[id] for id in reviewRequirements_ids]
+        # taskReviewRequirements = []
         parameters = json.loads(str(record.parameters))
 
         # episodes = Episode.find(id=record.episode_id)
