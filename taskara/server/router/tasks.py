@@ -404,48 +404,50 @@ async def record_action(
         raise HTTPException(status_code=404, detail="Task not found")
     redis_client = get_redis_client()
     task = task[0]
-    if task.episode and task.episode.actions and task.episode.actions[-1].action.name != "end": #TODO add enum for action names
-        action = data
-        state = action.state
-        endState = action.end_state
-        # Collect async tasks without using asyncio.to_thread, since convert_images is async
-        imageTasks = []
-        if state.images:
-            imageTasks.append(convert_images_async(state.images))
-        if endState and endState.images:
-            imageTasks.append(convert_images_async(endState.images))
-
-        if imageTasks:
-            results = await asyncio.gather(*imageTasks)
-            endStateIdx = 0
+    if task.episode:
+        actions = task.episode.actions
+        if not actions or task.episode.actions[-1].action.name != "end": #TODO add enum for action names
+            action = data
+            state = action.state
+            endState = action.end_state
+            # Collect async tasks without using asyncio.to_thread, since convert_images is async
+            imageTasks = []
             if state.images:
-                state.images = results[0]
-                endStateIdx += 1
+                imageTasks.append(convert_images_async(state.images))
             if endState and endState.images:
-                endState.images = results[endStateIdx]
+                imageTasks.append(convert_images_async(endState.images))
 
-        task.record_action_event(ActionEvent.from_v1(data))
-        if redis_client:
-            if task.episode:
-                actions_length = len(task.episode.actions)
-                prevAction = (
-                    task.episode.actions[actions_length - 2].to_v1()
-                    if actions_length > 1
-                    else None
-                )
-                event_message = V1ActionRecordedMessage(
-                    prevAction=prevAction,
-                    action=action,
-                    event_number=actions_length,
-                    task=task.to_v1(),
-                ).model_dump_json()
-                await redis_client.xadd(
-                    stream_action_recorded, {"message": event_message}, "*"
-                )
+            if imageTasks:
+                results = await asyncio.gather(*imageTasks)
+                endStateIdx = 0
+                if state.images:
+                    state.images = results[0]
+                    endStateIdx += 1
+                if endState and endState.images:
+                    endState.images = results[endStateIdx]
+
+            task.record_action_event(ActionEvent.from_v1(data))
+            if redis_client:
+                if task.episode:
+                    actions_length = len(task.episode.actions)
+                    prevAction = (
+                        task.episode.actions[actions_length - 2].to_v1()
+                        if actions_length > 1
+                        else None
+                    )
+                    event_message = V1ActionRecordedMessage(
+                        prevAction=prevAction,
+                        action=action,
+                        event_number=actions_length,
+                        task=task.to_v1(),
+                    ).model_dump_json()
+                    await redis_client.xadd(
+                        stream_action_recorded, {"message": event_message}, "*"
+                    )
+                else:
+                    raise ValueError("No Episode on task!")
             else:
-                raise ValueError("No Episode on task!")
-        else:
-            print("no redis client", flush=True)
+                print("no redis client", flush=True)
     return
 
 
