@@ -5,6 +5,7 @@ import re
 import time
 from typing import Annotated, List, Optional
 
+from skillpacks.review import Resource
 import shortuuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from mllm import Prompt, V1Prompt
@@ -257,7 +258,7 @@ async def review_task(
             reviewer=data.reviewer,  # type: ignore
             approved=data.approved,
             reviewer_type=reviewer_type,
-            resource_type="task",
+            resource_type=Resource.TASK.value,
             resource_id=task_id,
             created=time.time(),
             reason=data.reason,
@@ -707,10 +708,10 @@ async def fail_all_actions(
         )
 
     task.episode.fail_all(
-        reviewer=review.reviewer,
+        reviewer=review.reviewer, # type: ignore
         reviewer_type=reviewer_type,
         fail_hidden=review.fail_hidden,
-    )  # type: ignore
+    )
     task.save()
     task.update_pending_reviews()
 

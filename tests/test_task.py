@@ -116,3 +116,155 @@ def test_find_many_lite():
     # Test retrieving no tasks
     found_none = Task.find_many_lite(task_ids=["nonexistent"])
     assert len(found_none) == 0
+
+def test_find_many_lite_with_reviews_and_reqs():
+    """
+    Verifies that find_many_lite correctly returns tasks along with:
+      - Their parameters
+      - Their associated Reviews
+      - Their associated ReviewRequirements
+    in a single batched lookup.
+    """
+
+    # -----------------------------
+    # 1) Create sample tasks
+    # -----------------------------
+    task4 = Task(description="Task 4", owner_id="owner4", id="task4")
+    task5 = Task(description="Task 5", owner_id="owner4", id="task5")
+    task6 = Task(description="Task 6", owner_id="owner5", id="task6")
+
+    # Give each task some parameters
+    task4.parameters = {"foo": "bar4", "alpha": 123}
+    task5.parameters = {"foo": "bar5", "beta": 999}
+    task6.parameters = {"foo": "bar6", "gamma": 42}
+
+    # -----------------------------
+    # 2) Create Reviews for tasks
+    # -----------------------------
+    from skillpacks.review import Review, Resource
+
+    review_a = Review(
+        reviewer="alice",
+        approved=True,
+        resource_type=Resource.TASK.value,
+        resource_id="task4",        # Associate with task4
+        reason="Review A - All good",
+    )
+    review_b = Review(
+        reviewer="bob",
+        approved=False,
+        resource_type=Resource.TASK.value,
+        resource_id="task4",        # Also task4
+        reason="Review B - Some issues",
+    )
+    review_c = Review(
+        reviewer="charlie",
+        approved=True,
+        resource_type=Resource.TASK.value,
+        resource_id="task5",        # For task5
+        reason="Review C - LGTM",
+    )
+    review_d = Review(
+        reviewer="david",
+        approved=True,
+        resource_type=Resource.TASK.value,
+        resource_id="task6",        # For task6
+        reason="Review D - Quick check",
+    )
+
+    # Save Reviews to DB so they have real IDs
+    review_a.save()
+    review_b.save()
+    review_c.save()
+    review_d.save()
+
+    # Link them to the tasks
+    task4.reviews = [review_a, review_b]
+    task5.reviews = [review_c]
+    task6.reviews = [review_d]
+
+    # -----------------------------
+    # 3) Create ReviewRequirements
+    # -----------------------------
+    from taskara.review import ReviewRequirement
+
+    req_a = ReviewRequirement(
+        task_id="task4",
+        number_required=1,
+        users=["alice", "bob"],
+    )
+    req_b = ReviewRequirement(
+        task_id="task5",
+        number_required=2,
+        users=["charlie", "someone_else"],
+    )
+    req_c = ReviewRequirement(
+        task_id="task6",
+        number_required=1,
+        agents=["agent_1"],
+    )
+
+    req_a.save()
+    req_b.save()
+    req_c.save()
+
+    # Link them
+    task4.review_requirements = [req_a]
+    task5.review_requirements = [req_b]
+    task6.review_requirements = [req_c]
+
+    # -----------------------------
+    # 4) Save all tasks to DB
+    # -----------------------------
+    task4.save()
+    task5.save()
+    task6.save()
+
+    # -----------------------------
+    # 5) Exercise find_many_lite
+    # -----------------------------
+    found = Task.find_many_lite(task_ids=["task4", "task5", "task6"])
+    assert len(found) == 3, "Should return all three tasks"
+
+    # Turn the list into a dict for easy lookup by ID
+    found_dict = {t.id: t for t in found}
+
+    # -----------------------------
+    # 6) Verify Task 4 data
+    # -----------------------------
+    t4 = found_dict["task4"]
+    assert t4.parameters["foo"] == "bar4" if t4.parameters else None
+    assert t4.parameters["alpha"] == 123 if t4.parameters else None
+    assert len(t4.reviews) == 2, "Task 4 should have 2 reviews"
+    reviewers_t4 = {r.reviewer for r in t4.reviews}
+    assert reviewers_t4 == {"alice", "bob"}
+    assert len(t4.review_requirements) == 1, "Task 4 should have 1 review requirement"
+    assert t4.review_requirements[0].users == ["alice", "bob"]
+
+    # -----------------------------
+    # 7) Verify Task 5 data
+    # -----------------------------
+    t5 = found_dict["task5"]
+    assert t5.parameters["foo"] == "bar5" if t5.parameters else None
+    assert t5.parameters["beta"] == 999 if t5.parameters else None
+    assert len(t5.reviews) == 1, "Task 5 should have 1 review"
+    assert t5.reviews[0].reviewer == "charlie"
+    assert len(t5.review_requirements) == 1, "Task 5 should have 1 review requirement"
+    req5 = t5.review_requirements[0]
+    assert req5.number_required == 2
+    assert req5.users == ["charlie", "someone_else"]
+
+    # -----------------------------
+    # 8) Verify Task 6 data
+    # -----------------------------
+    t6 = found_dict["task6"]
+    assert t6.parameters["foo"] == "bar6" if t6.parameters else None
+    assert t6.parameters["gamma"] == 42 if t6.parameters else None
+    assert len(t6.reviews) == 1, "Task 6 should have 1 review"
+    assert t6.reviews[0].reviewer == "david"
+    assert len(t6.review_requirements) == 1, "Task 6 should have 1 review requirement"
+    req6 = t6.review_requirements[0]
+    assert req6.agents == ["agent_1"]
+    assert req6.number_required == 1
+
+    print("test_find_many_lite_with_reviews_and_reqs passed!")

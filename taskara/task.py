@@ -25,6 +25,7 @@ from skillpacks import (
     V1Episode,
     V1ToolRef,
 )
+from skillpacks.review import Resource
 from skillpacks.action_opts import ActionOpt
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
@@ -567,20 +568,20 @@ class Task(WithDB):
         return obj
 
     @classmethod
-    def from_record_lite(cls, record: TaskRecord) -> "Task":
+    def from_record_lite(cls, record: TaskRecord, reviews, reviewRequirements) -> "Task":
         # not optional??
-        # threads = []
-        thread_ids = json.loads(str(record.threads))
-        threads = [RoleThread.find(id=thread_id)[0] for thread_id in thread_ids]
-        
+        threads = []
+        # thread_ids = json.loads(str(record.threads))
+        # threads = [RoleThread.find(id=thread_id)[0] for thread_id in thread_ids]
+
         # prompt_ids = json.loads(str(record.prompts))
         # prompts = [Prompt.find(id=prompt_id)[0] for prompt_id in prompt_ids]
 
         review_ids = json.loads(str(record.reviews))
-        reviews = [Review.find(id=id)[0] for id in review_ids]
+        taskReviews = [reviews[id] for id in review_ids]
 
-        review_req_ids = json.loads(str(record.review_requirements))
-        review_reqs = [ReviewRequirement.find(id=id)[0] for id in review_req_ids]
+        reviewRequirements_ids = json.loads(str(record.review_requirements))
+        taskReviewRequirements = [reviewRequirements[id] for id in reviewRequirements_ids]
 
         parameters = json.loads(str(record.parameters))
 
@@ -606,8 +607,8 @@ class Task(WithDB):
         obj._device = cls.decrypt_device(record.device)  # type: ignore
         obj._device_type = device_type
         obj._expect_schema = expect
-        obj._reviews = reviews
-        obj._review_requirements = review_reqs
+        obj._reviews = taskReviews
+        obj._review_requirements = taskReviewRequirements
         obj._status = TaskStatus(record.status)
         obj._created = record.created
         obj._started = record.started
@@ -1281,7 +1282,31 @@ class Task(WithDB):
             # Apply sorting by creation date and retrieve the records
             records = query.order_by(TaskRecord.created.desc()).all()
 
-            return [cls.from_record_lite(record) for record in records]
+            # if we decide it is better to go by ids
+            # all_review_ids = set()
+            # all_review_req_ids = set()
+            # for record in records:
+            #     # Parse reviews
+            #     review_ids = json.loads(str(record.reviews))
+            #     for rev_id in review_ids:
+            #         all_review_ids.add(rev_id)
+            #     # Parse review requirements
+            #     rr_ids = json.loads(str(record.review_requirements))
+            #     for req_id in rr_ids:
+            #         all_review_req_ids.add(req_id)
+
+            reviews_dict = {}
+            reviews_list = Review.find_many(
+                resource_ids=task_ids,
+                resource_type=Resource.TASK.value
+            )
+            reviews_dict = {rev.id: rev for rev in reviews_list}
+
+            rr_dict = {}
+            rr_list = ReviewRequirement.find_many(task_ids=task_ids)
+            rr_dict = {rr.id: rr for rr in rr_list}
+
+            return [cls.from_record_lite(record, reviews_dict, rr_dict) for record in records]
 
         raise ValueError("No session")
 

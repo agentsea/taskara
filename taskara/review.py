@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Dict, Optional, List
 import shortuuid
 import time
 import json
@@ -261,5 +261,21 @@ class ReviewRequirement(WithDB):
 
         for db in cls.get_db():
             records = db.query(ReviewRequirementRecord).filter_by(**kwargs).all()
+            return [cls.from_record(record) for record in records]
+        raise ValueError("No database session available")
+
+    @classmethod
+    def find_many(cls,
+        task_ids: Optional[List[str]] = None,
+        requirement_ids: Optional[List[str]] = None,
+    ) -> List["ReviewRequirement"]:
+        """Finds review requirements in the database based on provided filters."""
+        for db in cls.get_db():
+            query = db.query(ReviewRequirementRecord)
+            if task_ids:
+                query = query.filter(ReviewRequirementRecord.task_id.in_(task_ids))
+            if requirement_ids:
+                query = query.filter(ReviewRequirementRecord.id.in_(requirement_ids))
+            records = db.query(ReviewRequirementRecord).all()
             return [cls.from_record(record) for record in records]
         raise ValueError("No database session available")
