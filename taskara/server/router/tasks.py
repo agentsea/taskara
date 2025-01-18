@@ -426,6 +426,9 @@ async def record_action(
                 if endState and endState.images:
                     endState.images = results[endStateIdx]
 
+            if data.action.name == "end" and actions and task.episode.actions[-1].action.name == "mouse_move":
+                task.episode.delete_action(task.episode.actions[-1].id)
+
             task.record_action_event(ActionEvent.from_v1(data))
             if redis_client:
                 if task.episode:
