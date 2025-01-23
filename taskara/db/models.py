@@ -1,8 +1,18 @@
 import time
-import shortuuid
 
-from sqlalchemy import Index, Table, Column, ForeignKey, String, Integer, Float, Text, Boolean
-from sqlalchemy.orm import relationship, declarative_base
+import shortuuid
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Table,
+    Text,
+)
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
@@ -41,18 +51,14 @@ task_label_association = Table(
 
 class TagRecord(Base):
     __tablename__ = "tags"
-    __table_args__ = (
-        Index("idx_tags_tag", "tag"),
-    )
+    __table_args__ = (Index("idx_tags_tag", "tag"),)
     id = Column(String, primary_key=True, default=lambda: shortuuid.uuid())
     tag = Column(String, unique=True, nullable=False)
 
 
 class LabelRecord(Base):
     __tablename__ = "labels"
-    __table_args__ = (
-        Index("idx_labels_key_value", "key", "value"),
-    )
+    __table_args__ = (Index("idx_labels_key_value", "key", "value"),)
     id = Column(String, primary_key=True, default=lambda: shortuuid.uuid())
     key = Column(String, nullable=False)
     value = Column(String, nullable=False)
@@ -87,6 +93,7 @@ class TaskRecord(Base):
     parent_id = Column(String, nullable=True)
     parameters = Column(String, nullable=True)
     version = Column(String, nullable=True)
+    public = Column(Boolean, nullable=False, default=False)
     episode_id = Column(String, nullable=True)
 
     tags = relationship("TagRecord", secondary=task_tag_association, backref="tasks")
@@ -97,13 +104,13 @@ class TaskRecord(Base):
 
 class ReviewRequirementRecord(Base):
     __tablename__ = "review_requirements"
-    __table_args__ = (
-        Index("idx_review_req_task_id", "task_id"),
-    )
+    __table_args__ = (Index("idx_review_req_task_id", "task_id"),)
     id = Column(String, primary_key=True)
     task_id = Column(String, nullable=True)
     number_required = Column(Integer, nullable=False)
-    users = Column(Text, nullable=True) # We need to split these apart for better lookups
+    users = Column(
+        Text, nullable=True
+    )  # We need to split these apart for better lookups
     agents = Column(Text, nullable=True)
     groups = Column(Text, nullable=True)
     types = Column(Text, nullable=True)
@@ -196,9 +203,7 @@ class FlagRecord(Base):
 
 class PendingReviewersRecord(Base):
     __tablename__ = "pending_reviewers"
-    __table_args__ = (
-        Index("idx_pending_reviewers_task_id", "task_id"),
-    )
+    __table_args__ = (Index("idx_pending_reviewers_task_id", "task_id"),)
     id = Column(String, primary_key=True)
     task_id = Column(String, nullable=True)
     user_id = Column(String, nullable=True)
