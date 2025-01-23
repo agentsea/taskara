@@ -139,6 +139,8 @@ class V1SearchTask(BaseModel):
     parent_id: Optional[str] = None
     tags: Optional[List[str]] = None
     labels: Optional[Dict[str, str]] = None
+    skill: Optional[str] = None
+    public: Optional[bool] = None
     episode_id: Optional[str] = None
     auth_token: Optional[str] = None
 
