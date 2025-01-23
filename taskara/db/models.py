@@ -94,6 +94,7 @@ class TaskRecord(Base):
     parameters = Column(String, nullable=True)
     version = Column(String, nullable=True)
     public = Column(Boolean, nullable=False, default=False)
+    skill = Column(String, nullable=True)
     episode_id = Column(String, nullable=True)
 
     tags = relationship("TagRecord", secondary=task_tag_association, backref="tasks")

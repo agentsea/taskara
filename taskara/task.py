@@ -8,7 +8,7 @@ import time
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, TypeVar
-from sqlalchemy.orm import joinedload, contains_eager
+
 import requests
 import shortuuid
 from cryptography.fernet import Fernet
@@ -25,8 +25,9 @@ from skillpacks import (
     V1Episode,
     V1ToolRef,
 )
-from skillpacks.review import Resource
 from skillpacks.action_opts import ActionOpt
+from skillpacks.review import Resource
+from sqlalchemy.orm import contains_eager, joinedload
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
 
@@ -109,6 +110,8 @@ class Task(WithDB):
         labels: Dict[str, str] = {},
         tags: List[str] = [],
         episode: Optional[Episode] = None,
+        skill: Optional[str] = None,
+        public: bool = False,
         auth_token: Optional[str] = None,
     ):
         self._id = id if id is not None else shortuuid.uuid()
@@ -128,6 +131,7 @@ class Task(WithDB):
         self._output = output
         self._parameters = parameters
         self._reviews = reviews
+        self._skill = skill
 
         for review in review_requirements:
             review.task_id = self._id
@@ -140,6 +144,7 @@ class Task(WithDB):
         self._episode = episode
         self._expect_schema = expect.model_json_schema() if expect else None
         self._auth_token = auth_token
+        self._public = public
         self._flags: List[Flag] = []
 
         self._threads = []
@@ -428,6 +433,22 @@ class Task(WithDB):
     def flag(self, flag: Flag) -> None:
         self._flags.append(flag)
 
+    @property
+    def public(self) -> bool:
+        return self._public
+
+    @public.setter
+    def public(self, value: bool):
+        self._public = value
+
+    @property
+    def skill(self) -> Optional[str]:
+        return self._skill
+
+    @skill.setter
+    def skill(self, value: Optional[str]):
+        self._skill = value
+
     def is_done(self) -> bool:
         return self._status in FINAL_STATUSES
 
@@ -487,6 +508,8 @@ class Task(WithDB):
             prompts=json.dumps([p._id for p in self._prompts]),
             parameters=json.dumps(self._parameters),
             version=version,
+            public=self._public,
+            skill=self._skill,
             episode_id=self._episode.id,
         )
 
@@ -556,6 +579,8 @@ class Task(WithDB):
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
+        obj._public = record.public
+        obj._skill = record.skill
 
         # Load tags
         obj._tags = [tag.tag for tag in record.tags]
@@ -568,7 +593,9 @@ class Task(WithDB):
         return obj
 
     @classmethod
-    def from_record_lite(cls, record: TaskRecord, reviews, reviewRequirements) -> "Task":
+    def from_record_lite(
+        cls, record: TaskRecord, reviews, reviewRequirements
+    ) -> "Task":
         # not optional??
         threads = []
         # thread_ids = json.loads(str(record.threads))
@@ -581,7 +608,9 @@ class Task(WithDB):
         taskReviews = [reviews[id] for id in review_ids]
         # taskReviews = []
         reviewRequirements_ids = json.loads(str(record.review_requirements))
-        taskReviewRequirements = [reviewRequirements[id] for id in reviewRequirements_ids]
+        taskReviewRequirements = [
+            reviewRequirements[id] for id in reviewRequirements_ids
+        ]
         # taskReviewRequirements = []
         parameters = json.loads(str(record.parameters))
 
@@ -604,7 +633,7 @@ class Task(WithDB):
         obj._description = record.description
         obj._max_steps = record.max_steps
         obj._project = record.project
-        obj._device = None #cls.decrypt_device(record.device)  # type: ignore
+        obj._device = None  # cls.decrypt_device(record.device)  # type: ignore
         obj._device_type = device_type
         obj._expect_schema = expect
         obj._reviews = taskReviews
@@ -624,6 +653,8 @@ class Task(WithDB):
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
+        obj._public = record.public
+        obj._skill = record.skill
 
         # Load tags
         obj._tags = [tag.tag for tag in record.tags]
@@ -1274,8 +1305,8 @@ class Task(WithDB):
             if tags:
                 query = (
                     query.join(TaskRecord.tags)
-                        .filter(TagRecord.tag.in_(tags))
-                        .options(contains_eager(TaskRecord.tags)) # no lazy loading
+                    .filter(TagRecord.tag.in_(tags))
+                    .options(contains_eager(TaskRecord.tags))  # no lazy loading
                 )
             else:
                 # No tag-based filtering, but we still eager-load to avoid lazy loads:
@@ -1287,7 +1318,9 @@ class Task(WithDB):
                     query = query.join(TaskRecord.labels).filter(
                         LabelRecord.key == key, LabelRecord.value == value
                     )
-                    query = query.options(contains_eager(TaskRecord.labels)) # no lazy loading
+                    query = query.options(
+                        contains_eager(TaskRecord.labels)
+                    )  # no lazy loading
             else:
                 # No label-based filtering, so we do a joinedload to eager-load
                 query = query.options(joinedload(TaskRecord.labels))
@@ -1296,15 +1329,16 @@ class Task(WithDB):
             records = query.order_by(TaskRecord.created.desc()).all()
 
             query_end_time = time.time()
-            print(f"[find_many_lite] Query execution time: {query_end_time - query_start_time:.4f} seconds")
+            print(
+                f"[find_many_lite] Query execution time: {query_end_time - query_start_time:.4f} seconds"
+            )
             print(f"[find_many_lite] Number of records found: {len(records)}")
 
             # Time how long it takes to load reviews & requirements
             load_start_time = time.time()
 
             reviews_list = Review.find_many(
-                resource_ids=task_ids,
-                resource_type=Resource.TASK.value
+                resource_ids=task_ids, resource_type=Resource.TASK.value
             )
             reviews_dict = {rev.id: rev for rev in reviews_list}
 
@@ -1312,16 +1346,26 @@ class Task(WithDB):
             rr_dict = {rr.id: rr for rr in rr_list}
 
             load_end_time = time.time()
-            print(f"[find_many_lite] Loading reviews & reqs took: {load_end_time - load_start_time:.4f} seconds")
+            print(
+                f"[find_many_lite] Loading reviews & reqs took: {load_end_time - load_start_time:.4f} seconds"
+            )
 
             # Construct tasks (lite)
             creation_start_time = time.time()
-            tasks = [cls.from_record_lite(record, reviews_dict, rr_dict) for record in records]
+            tasks = [
+                cls.from_record_lite(record, reviews_dict, rr_dict)
+                for record in records
+            ]
             creation_end_time = time.time()
-            print(f"[find_many_lite] Creating tasks took: {creation_end_time - creation_start_time:.4f} seconds")
+            print(
+                f"[find_many_lite] Creating tasks took: {creation_end_time - creation_start_time:.4f} seconds"
+            )
 
             total_time = time.time() - start_time
-            print(f"[find_many_lite] Total time so far: {total_time:.4f} seconds", flush=True)
+            print(
+                f"[find_many_lite] Total time so far: {total_time:.4f} seconds",
+                flush=True,
+            )
 
             return tasks
 
@@ -1466,6 +1510,8 @@ class Task(WithDB):
             tags=self._tags,
             labels=self._labels,
             episode_id=episode_id,
+            public=self._public,
+            skill=self._skill,
             auth_token=self.auth_token,
         )
 
@@ -1525,6 +1571,8 @@ class Task(WithDB):
         obj._project = v1.project
         obj._tags = v1.tags
         obj._labels = v1.labels
+        obj._public = v1.public
+        obj._skill = v1.skill
         obj._auth_token = auth_token if auth_token else v1.auth_token
 
         obj._episode = cls._get_episode(
@@ -1595,6 +1643,8 @@ class Task(WithDB):
         obj._project = v1.project
         obj._tags = v1.tags
         obj._labels = v1.labels
+        obj._public = v1.public
+        obj._skill = v1.skill
         obj._auth_token = auth_token if auth_token else v1.auth_token
         obj._episode = Episode()  # episode doesn't matter for only remote action calls
         obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
@@ -1635,6 +1685,8 @@ class Task(WithDB):
                     self._parameters = v1.parameters
                     self._project = v1.project
                     self._parent_id = v1.parent_id
+                    self._public = v1.public
+                    self._skill = v1.skill
                     self._review_requirements = [
                         ReviewRequirement.from_v1(requirement)
                         for requirement in v1.review_requirements
@@ -1684,6 +1736,8 @@ class Task(WithDB):
             self._parent_id = task._parent_id
             self._threads = task._threads
             self._prompts = task._prompts
+            self._public = task._public
+            self._skill = task._skill
 
             self._episode = self._get_episode(
                 task_id=self.id,
