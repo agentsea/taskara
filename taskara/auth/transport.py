@@ -1,11 +1,11 @@
-from typing import Annotated
 import logging
 import os
+from typing import Annotated
 
-from fastapi import HTTPException, Depends
+from agentcore.models import V1UserProfile
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
-from threadmem.server.models import V1UserProfile
 from .provider import default_auth_provider
 
 logger = logging.getLogger(__name__)

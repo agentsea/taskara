@@ -6,6 +6,7 @@ import time
 from typing import Annotated, List, Optional
 
 import shortuuid
+from agentcore.models import V1UserProfile
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from mllm import Prompt, V1Prompt
 from skillpacks import ActionEvent, Episode, Review
@@ -42,7 +43,6 @@ from taskara.server.models import (
     V1Task,
     V1Tasks,
     V1TaskUpdate,
-    V1UserProfile,
 )
 
 router = APIRouter()

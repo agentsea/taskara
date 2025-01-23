@@ -5,7 +5,7 @@ from typing import Optional
 from venv import logger
 
 import requests
-from threadmem.server.models import V1UserProfile
+from agentcore.models import V1UserProfile
 
 from .key import KeyProvider, MockProvider, default_key_provider
 
