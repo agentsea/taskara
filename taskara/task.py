@@ -579,7 +579,7 @@ class Task(WithDB):
         obj._version = record.version
         obj._parameters = parameters
         obj._remote = None
-        obj._public = record.public
+        obj._public = record.public or False  # type: ignore
         obj._skill = record.skill
 
         # Load tags

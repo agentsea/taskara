@@ -119,6 +119,7 @@ async def search_tasks(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     data: V1SearchTask,  # Accept the task_id in the body now
 ):
+    print(f"current user: {current_user}")
     owner_id = current_user.email
     if current_user.organization:
         owner_id = f"org:{current_user.organization}"
@@ -133,6 +134,7 @@ async def search_tasks(
                 detail=f"You {current_user.email} are not authorized to search tasks for this organization",
             )
 
+    print("owner_id: ", owner_id)
     # print(vars(data))
     data_dict = data.model_dump(exclude_unset=True)
     data_dict.setdefault("owner_id", owner_id)
