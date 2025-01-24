@@ -1510,7 +1510,7 @@ class Task(WithDB):
             tags=self._tags,
             labels=self._labels,
             episode_id=episode_id,
-            public=self._public,
+            public=self._public or False,
             skill=self._skill,
             auth_token=self.auth_token,
         )
