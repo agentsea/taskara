@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taskara"
-version = "0.1.211"
+version = "0.1.212"
 description = "Task management for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "MIT"
