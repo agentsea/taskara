@@ -1,6 +1,7 @@
 import logging.config
 import os
 from contextlib import asynccontextmanager
+import time
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,10 +47,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    start_time = time.time()
     access_logger.info(f"Received request: {request.method} {request.url}")
     response = await call_next(request)
+    duration = time.time() - start_time
     access_logger.info(
-        f"Returned response {request.method} {request.url}: {response.status_code}"
+        f"Returned response {request.method} {request.url}: {response.status_code} - Duration: {duration:.4f} seconds"
     )
     return response
 
