@@ -1281,10 +1281,10 @@ class Task(WithDB):
         statuses: Optional[List[str]] = None,
     ) -> List["Task"]:
         print("[find_many_lite] Starting query...")
-        start_time = time.time()
+        # start_time = time.time()
 
         for db in cls.get_db():
-            query_start_time = time.time()
+            # query_start_time = time.time()
 
             query = db.query(TaskRecord)
             if task_ids:
@@ -1328,14 +1328,14 @@ class Task(WithDB):
             # Apply sorting by creation date and retrieve the records
             records = query.order_by(TaskRecord.created.desc()).all()
 
-            query_end_time = time.time()
-            print(
-                f"[find_many_lite] Query execution time: {query_end_time - query_start_time:.4f} seconds"
-            )
-            print(f"[find_many_lite] Number of records found: {len(records)}")
+            # query_end_time = time.time()
+            # print(
+            #     f"[find_many_lite] Query execution time: {query_end_time - query_start_time:.4f} seconds"
+            # )
+            # print(f"[find_many_lite] Number of records found: {len(records)}")
 
             # Time how long it takes to load reviews & requirements
-            load_start_time = time.time()
+            # load_start_time = time.time()
 
             reviews_list = Review.find_many(
                 resource_ids=task_ids, resource_type=Resource.TASK.value
@@ -1345,27 +1345,27 @@ class Task(WithDB):
             rr_list = ReviewRequirement.find_many(task_ids=task_ids)
             rr_dict = {rr.id: rr for rr in rr_list}
 
-            load_end_time = time.time()
-            print(
-                f"[find_many_lite] Loading reviews & reqs took: {load_end_time - load_start_time:.4f} seconds"
-            )
+            # load_end_time = time.time()
+            # print(
+            #     f"[find_many_lite] Loading reviews & reqs took: {load_end_time - load_start_time:.4f} seconds"
+            # )
 
             # Construct tasks (lite)
-            creation_start_time = time.time()
+            # creation_start_time = time.time()
             tasks = [
                 cls.from_record_lite(record, reviews_dict, rr_dict)
                 for record in records
             ]
-            creation_end_time = time.time()
-            print(
-                f"[find_many_lite] Creating tasks took: {creation_end_time - creation_start_time:.4f} seconds"
-            )
+            # creation_end_time = time.time()
+            # print(
+            #     f"[find_many_lite] Creating tasks took: {creation_end_time - creation_start_time:.4f} seconds"
+            # )
 
-            total_time = time.time() - start_time
-            print(
-                f"[find_many_lite] Total time so far: {total_time:.4f} seconds",
-                flush=True,
-            )
+            # total_time = time.time() - start_time
+            # print(
+            #     f"[find_many_lite] Total time so far: {total_time:.4f} seconds",
+            #     flush=True,
+            # )
 
             return tasks
 
