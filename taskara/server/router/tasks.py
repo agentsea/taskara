@@ -43,6 +43,7 @@ from taskara.server.models import (
     V1Task,
     V1Tasks,
     V1TaskUpdate,
+    V1CreateTask
 )
 
 router = APIRouter()
@@ -52,17 +53,27 @@ logger = logging.getLogger(__name__)
 @router.post("/v1/tasks", response_model=V1Task)
 async def create_task(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
-    data: V1Task,
+    data: V1CreateTask,
 ):
     logger.debug(f"creating task with model: {data.model_dump()}")
 
     owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
+    if data.org:
+        if current_user.organizations:
+            if (
+                current_user.organizations[data.org] and
+                current_user.organizations[data.org]["role"] in ["org:admin", "org:member", "org:agent"]
+                ):
+                owner_id = data.org
+            else:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"You {current_user.email} are not authorized to create tasks for this organization",
+                )
+        else:
             raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to create tasks for this organization",
+                status_code=500,
+                detail=f"You {current_user.email} do not have any organizations or there is an error. If this issue persists please let us know via email: support@kentauros.ai",
             )
 
     episode = None
@@ -120,26 +131,36 @@ async def search_tasks(
     data: V1SearchTask,  # Accept the task_id in the body now
 ):
     print(f"current user: {current_user}")
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in [
-            "org:admin",
-            "org:member",
-            "org:agent",
-            "org:viewer",
-        ]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to search tasks for this organization",
-            )
+    owners = []
+    # check to make sure user has access to every owner
+    if data.owners:
+        if current_user.organizations:
+            for owner in data.owners:
+                if (
+                    (owner == current_user.email)
+                    or
+                    (
+                        current_user.organizations[owner] and
+                        current_user.organizations[owner]["role"] in ["org:admin", "org:member", "org:agent", "org:viewer"]
+                    )
+                ):
+                    owners.append(owner)
+                else:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"You {current_user.email} are not authorized to search tasks for this organization",
+                    )
+    else:
+        owners = [current_user.email] + (list(current_user.organizations.keys()) if current_user.organizations else [])
+    
 
-    print("owner_id: ", owner_id)
+    print("owner_id: ", owners)
     # print(vars(data))
     data_dict = data.model_dump(exclude_unset=True)
-    data_dict.setdefault("owner_id", owner_id)
+    # data_dict.setdefault("owner_id", owners)
+    data_dict.pop('owners', None) # delete the key owners if it exists
     print(data_dict)
-    tasks = Task.find(**data_dict, tags=None, labels=None)
+    tasks = Task.find(**data_dict, owners=owners, tags=None, labels=None)
     return V1Tasks(tasks=[task.to_v1() for task in tasks])
 
 
@@ -155,22 +176,26 @@ async def get_tasks(
     parent_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     task_id: Optional[str] = Query(None),
+    owners: Optional[List[str]] = Query(None)
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in [
-            "org:admin",
-            "org:member",
-            "org:agent",
-            "org:viewer",
-        ]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to get tasks for this organization",
-            )
+    if owners:
+        if current_user.organizations:
+            for owner in owners:
+                if (owner != current_user.email 
+                    and (
+                        owner not in current_user.organizations 
+                        or current_user.organizations[owner].get("role")  
+                        not in {"org:admin", "org:member", "org:agent", "org:viewer"} 
+                    )
+                ) :
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"You {current_user.email} are not authorized to get tasks for this organization",
+                    )
+    else:
+        owners = [current_user.email] + (list(current_user.organizations.keys()) if current_user.organizations else [])
 
-    filter_kwargs = {"owner_id": owner_id}
+    filter_kwargs = {}
 
     if assigned_to:
         filter_kwargs["assigned_to"] = assigned_to
@@ -192,10 +217,10 @@ async def get_tasks(
         [task_id, assigned_to, assigned_type, device, device_type, parent_id, status]
     ):
         tasks = Task.find_many_lite(
-            owner_id=current_user.email, tags=tags, labels=labels_dict
+            owners=owners, tags=tags, labels=labels_dict
         )
         return V1Tasks(tasks=[task.to_v1() for task in tasks])
-    tasks = Task.find(**filter_kwargs, tags=tags, labels=labels_dict)
+    tasks = Task.find(**filter_kwargs, owners=owners, tags=tags, labels=labels_dict)
     return V1Tasks(tasks=[task.to_v1() for task in tasks])
 
 
@@ -204,21 +229,12 @@ async def get_task(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
 ):
     logger.debug(f"finding task by id: {task_id}")
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in [
-            "org:admin",
-            "org:member",
-            "org:agent",
-            "org:viewer",
-        ]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to get tasks for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent", "org:viewer"}
+    ] if current_user.organizations else []
 
-    tasks = Task.find(id=task_id, owner_id=owner_id)
+    tasks = Task.find(id=task_id, owners=owners)
     logger.debug(f"found tasks: {tasks}")
     if not tasks:
         logger.debug(f"did not find task by id: {task_id}")
@@ -231,16 +247,19 @@ async def get_task(
 async def delete_task(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to delete tasks for this organization",
-            )
-    Task.delete(id=task_id, owner_id=owner_id)  # type: ignore
-    return {"message": "Task deleted successfully"}
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member"}
+    ] if current_user.organizations else []
+
+    taskToDelete = Task.find(id=task_id, owners=owners)
+
+    if taskToDelete:
+        taskToDelete = taskToDelete[0]
+        Task.delete(id=taskToDelete.id, owner_id=taskToDelete.owner_id)  # type: ignore
+        return {"message": "Task deleted successfully"}
+    else:
+        raise HTTPException(404, detail="task not found or you do not have proper org access to delete this task")
 
 
 @router.put("/v1/tasks/{task_id}", response_model=V1Task)
@@ -251,18 +270,14 @@ async def update_task(
 ):
     logger.debug(f"updating task with model: {data}")
 
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to update tasks for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have proper org access to make this change")
     task = task[0]
 
     logger.debug(f"found task: {task.__dict__}")
@@ -297,17 +312,15 @@ async def review_task(
     data: V1CreateReview,
 ):
     logger.debug(f"adding review: {data}")
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to review tasks for this organization",
-            )
-    task = Task.find(id=task_id, owner_id=owner_id)
+
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you don't have proper org access to post reviews")
     task = task[0]
 
     logger.debug(f"found task: {task.__dict__}")
@@ -359,17 +372,15 @@ async def post_task_msg(
     data: V1PostMessage,
 ):
     logger.debug(f"posting message to task: {data.model_dump()}")
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to post messages to tasks for this organization",
-            )
-    task = Task.find(id=task_id, owner_id=owner_id)
+
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have proper org access to post messages to tasks")
     task = task[0]
 
     task.post_message(data.role, data.msg, data.images, thread=data.thread)  # type: ignore
@@ -384,13 +395,14 @@ async def get_pending_reviews(
 ):
     pending = PendingReviewers()
     owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to get pending reviews for this organization",
-            )
+    # I am not sure how org stuff is necesary here?
+    # if current_user.organization:
+    #     owner_id = f"org:{current_user.organization}"
+    #     if current_user.role not in ["org:admin", "org:member", "org:agent"]:
+    #         raise HTTPException(
+    #             status_code=403,
+    #             detail=f"You {current_user.email} are not authorized to get pending reviews for this organization",
+    #         )
     if agent_id:
         return pending.pending_reviews(agent=agent_id)
 
@@ -402,13 +414,14 @@ async def get_pending_approvals(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())], task_id: str
 ):
     owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to get pending approvals for this organization",
-            )
+    # I am not sure how org stuff is necesary here?
+    # if current_user.organization:
+    #     owner_id = f"org:{current_user.organization}"
+    #     if current_user.role not in ["org:admin", "org:member", "org:agent"]:
+    #         raise HTTPException(
+    #             status_code=403,
+    #             detail=f"You {current_user.email} are not authorized to get pending approvals for this organization",
+    #         )
     pending = PendingReviewers()
 
     # TODO: fix authz
@@ -422,18 +435,14 @@ async def store_prompt(
     data: V1Prompt,
 ):
     logger.debug(f"posting prompt to task: {data.model_dump()}")
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to store prompts for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have proper org access to store prompts on this task")
     task = task[0]
 
     id = task.store_prompt(
@@ -441,7 +450,7 @@ async def store_prompt(
         response=RoleMessage.from_v1(data.response),
         namespace=data.namespace,
         metadata=data.metadata,
-        owner_id=owner_id,
+        owner_id=task.owner_id,
     )
 
     logger.debug(f"stored prompt in task: {task.__dict__}")
@@ -454,21 +463,17 @@ async def approve_prompt(
     task_id: str,
     prompt_id: str,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to approve prompts for this organization",
-            )
-    tasks = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+    tasks = Task.find(id=task_id, owners=owners)
     if not tasks:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have proper org access to approve prompts on this task")
     task = tasks[0]
 
     if prompt_id == "all":
-        prompts = Prompt.find(task_id=task_id, owner_id=owner_id)
+        prompts = Prompt.find(task_id=task_id, owner_id=task.owner_id)
         if not prompts:
             raise HTTPException(status_code=404, detail="Prompt not found")
         for prompt in prompts:
@@ -477,7 +482,7 @@ async def approve_prompt(
             logger.debug(f"approved all prompts in task: {task.__dict__}")
         return
 
-    prompts = Prompt.find(id=prompt_id, owner_id=owner_id)
+    prompts = Prompt.find(id=prompt_id, owner_id=task.owner_id)
     if not prompts:
         raise HTTPException(status_code=404, detail="Prompt not found")
     prompt = prompts[0]
@@ -495,20 +500,16 @@ async def fail_prompt(
     task_id: str,
     prompt_id: str,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to fail prompts for this organization",
-            )
-    tasks = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+    tasks = Task.find(id=task_id, owners=owners)
     if not tasks:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to fail this prompt")
     task = tasks[0]
 
-    prompts = Prompt.find(id=prompt_id, owner_id=owner_id)
+    prompts = Prompt.find(id=prompt_id, owner_id=task.owner_id)
     if not prompts:
         raise HTTPException(status_code=404, detail="Prompt not found")
     prompt = prompts[0]
@@ -526,17 +527,13 @@ async def record_action(
     task_id: str,
     data: V1ActionEvent,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to record actions for this organization",
-            )
-    task = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to record actions")
 
     redis_client = get_redis_client()
     task = task[0]
@@ -601,16 +598,12 @@ async def get_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to delete tasks for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent", "org:viewer"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
@@ -628,17 +621,14 @@ async def approve_action(
     action_id: str,
     review: V1CreateReviewAction,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to approve actions for this organization",
-            )
-    task = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to approve actions")
     task = task[0]
 
     if not task.episode:
@@ -672,17 +662,14 @@ async def approve_prior_actions(
     action_id: str,
     review: V1ReviewMany,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to approve prior actions for this organization",
-            )
-    task = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to approve actions")
     task = task[0]
 
     if not task.episode:
@@ -720,17 +707,14 @@ async def approve_all_actions(
     task_id: str,
     review: V1ReviewMany,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to approve actions for this organization",
-            )
-    task = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to approve actions")
     task = task[0]
 
     if not task.episode:
@@ -765,17 +749,14 @@ async def fail_action(
     action_id: str,
     review: V1CreateReviewAction,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to fail actions for this organization",
-            )
-    task = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to fail actions")
     task = task[0]
 
     if not task.episode:
@@ -812,17 +793,13 @@ async def create_annotation(
     action_id: str,
     annotation: V1AnnotationReviewable,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to create annotations for this organization",
-            )
-    tasks = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+    tasks = Task.find(id=task_id, owners=owners)
     if not tasks:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to create annotations")
 
     events = ActionEvent.find(id=action_id)
     if not events:
@@ -852,24 +829,21 @@ async def review_annotation(
     annotation_id: str,
     review: V1CreateAnnotationReview,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to review annotations for this organization",
-            )
-
-    task = Task.find(id=task_id, owner_id=owner_id)
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
+    print("owners: ", owners, flush=True)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to review annotations")
     task = task[0]
-
+    print("task: ", task, flush=True)
     if not task.episode:
         raise HTTPException(status_code=404, detail="Task episode not found")
 
     found = AnnotationReviewable.find(id=annotation_id)
+    print("AnnotationReviewable: ", found, flush=True)
     if not found:
         raise HTTPException(status_code=404, detail="Reviewable not found")
     reviewable = found[0]
@@ -907,18 +881,14 @@ async def fail_all_actions(
     task_id: str,
     review: V1ReviewMany,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to fail actions for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to fail all actions")
     task = task[0]
 
     if not task.episode:
@@ -949,18 +919,14 @@ async def delete_all_actions(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to delete actions for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to delete all actions")
     task = task[0]
 
     if not task.episode:
@@ -981,19 +947,15 @@ async def toggle_hide_action(
     action_id: str,
     request: Request,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to hide actions for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
 
     hide_action = bool(re.match(r".*/hide$", request.url.path))
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to hide actions")
     task = task[0]
 
     if not task.episode:
@@ -1014,16 +976,12 @@ async def get_threads(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to review annotations for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent", "org:viewer"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
@@ -1040,16 +998,12 @@ async def get_thread(
     task_id: str,
     thread_id: str,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to get threads for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent", "org:viewer"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
@@ -1066,18 +1020,14 @@ async def create_thread(
     task_id: str,
     data: V1AddThread,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to create threads for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to create threads")
     task = task[0]
     task.create_thread(data.name, data.public, data.metadata)
     return
@@ -1089,18 +1039,14 @@ async def remove_thread(
     task_id: str,
     data: V1RemoveThread,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to remove threads for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found or you do not have org access to remove threads")
     task = task[0]
     task.remove_thread(data.id)
     return
@@ -1111,16 +1057,12 @@ async def get_prompts(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to get prompts for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent", "org:viewer"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]
@@ -1136,16 +1078,12 @@ async def get_episode(
     current_user: Annotated[V1UserProfile, Depends(get_user_dependency())],
     task_id: str,
 ):
-    owner_id = current_user.email
-    if current_user.organization:
-        owner_id = f"org:{current_user.organization}"
-        if current_user.role not in ["org:admin", "org:member", "org:agent"]:
-            raise HTTPException(
-                status_code=403,
-                detail=f"You {current_user.email} are not authorized to get episode for this organization",
-            )
+    owners = [current_user.email] + [
+        key for key, value in current_user.organizations.items()
+        if value.get("role") in {"org:admin", "org:member", "org:agent", "org:viewer"}
+    ] if current_user.organizations else []
 
-    task = Task.find(id=task_id, owner_id=owner_id)
+    task = Task.find(id=task_id, owners=owners)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task = task[0]

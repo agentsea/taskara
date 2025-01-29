@@ -79,6 +79,38 @@ class V1TaskUpdate(BaseModel):
     version: Optional[str] = None
     set_labels: Optional[Dict[str, str]] = None
 
+class V1CreateTask(BaseModel):
+    id: str = Field(default_factory=lambda: shortuuid.uuid())
+    description: str
+    max_steps: int = 30
+    device: Optional[V1Device] = None
+    device_type: Optional[V1DeviceType] = None
+    expect_schema: Optional[Dict[str, Any]] = None
+    status: Optional[str] = None
+    threads: Optional[List[V1RoleThread]] = None
+    prompts: Optional[List[str]] = None
+    reviews: List[V1Review] = []
+    review_requirements: List[V1ReviewRequirement] = []
+    assigned_to: Optional[str] = None
+    assigned_type: Optional[str] = None
+    created: float = Field(default_factory=time.time)
+    started: float = 0.0
+    completed: float = 0.0
+    error: Optional[str] = None
+    output: Optional[str] = None
+    parameters: Optional[Dict[str, Any]] = {}
+    version: Optional[str] = None
+    remote: Optional[str] = None
+    owner_id: Optional[str] = None
+    project: Optional[str] = None
+    parent_id: Optional[str] = None
+    tags: List[str] = []
+    labels: Dict[str, str] = {}
+    episode_id: Optional[str] = None
+    public: bool = False
+    skill: Optional[str] = None
+    org: Optional[str] = None
+    auth_token: Optional[str] = None
 
 class V1Task(BaseModel):
     id: str = Field(default_factory=lambda: shortuuid.uuid())
@@ -120,6 +152,7 @@ class V1SearchTask(BaseModel):
     # device: Optional[V1Device]
     # device_type: Optional[V1DeviceType]
     status: Optional[str] = None
+    owners: Optional[List[str]] = None
     # threads: Optional[List[V1RoleThread]]
     # prompts: Optional[List[str]]
     # reviews: Optional[List[V1Review]]

@@ -1275,7 +1275,7 @@ class Task(WithDB):
     def find_many_lite(
         cls,
         task_ids: Optional[List[str]] = None,
-        owner_id: Optional[str] = None,
+        owners: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         labels: Optional[Dict[str, str]] = None,
         statuses: Optional[List[str]] = None,
@@ -1287,15 +1287,14 @@ class Task(WithDB):
             # query_start_time = time.time()
 
             query = db.query(TaskRecord)
+
+            # Add filtering by owners if provided
+            if owners:
+                query = query.filter(TaskRecord.owner_id.in_(owners))
+
+            # Add filtering by task_ids if provided
             if task_ids:
-                if owner_id:
-                    query = query.filter(
-                        TaskRecord.id.in_(task_ids), TaskRecord.owner_id == owner_id
-                    )
-                else:
-                    query = query.filter(TaskRecord.id.in_(task_ids))
-            elif owner_id:
-                query = query.filter(TaskRecord.owner_id == owner_id)
+                query = query.filter(TaskRecord.id.in_(task_ids))
 
             # Add filtering by statuses if provided
             if statuses:
@@ -1376,6 +1375,7 @@ class Task(WithDB):
         cls,
         remote: Optional[str] = None,
         auth_token: Optional[str] = None,
+        owners: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         labels: Optional[Dict[str, str]] = None,
         **kwargs,
@@ -1417,6 +1417,10 @@ class Task(WithDB):
 
                 # Apply task-specific filters from kwargs (e.g., owner_id)
                 query = query.filter_by(**kwargs)
+
+                # Apply Owners filters
+                if owners:
+                    query = query.filter(TaskRecord.owner_id.in_(owners))
 
                 # Handle tag filtering if tags are provided
                 if tags:
