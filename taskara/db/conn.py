@@ -42,7 +42,7 @@ def get_pg_conn() -> Engine:
 def get_sqlite_conn() -> Engine:
     db_path = os.path.join(AGENTSEA_DB_DIR, DB_NAME)
     if os.getenv("TASKARA_DEBUG"):
-        logger.debug(f"connecting to local sqlite db {db_path}")
+        print(f"connecting to local sqlite db {db_path}", flush=True)
     os.makedirs(AGENTSEA_DB_DIR, exist_ok=True)
     try:
         engine = create_engine(f"sqlite:///{db_path}")
@@ -58,7 +58,11 @@ else:
     engine = get_sqlite_conn()
 SessionLocal = sessionmaker(bind=engine)
 
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    logger.error(f"error creating tables: {e} for engine {engine.url}")
+    raise e
 
 
 class WithDB:
