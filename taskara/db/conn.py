@@ -41,7 +41,8 @@ def get_pg_conn() -> Engine:
 
 def get_sqlite_conn() -> Engine:
     db_path = os.path.join(AGENTSEA_DB_DIR, DB_NAME)
-    logger.debug(f"connecting to local sqlite db {db_path}")
+    if os.getenv("TASKARA_DEBUG"):
+        logger.debug(f"connecting to local sqlite db {db_path}")
     os.makedirs(AGENTSEA_DB_DIR, exist_ok=True)
     engine = create_engine(f"sqlite:///{db_path}")
     return engine
