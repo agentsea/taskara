@@ -44,7 +44,11 @@ def get_sqlite_conn() -> Engine:
     if os.getenv("TASKARA_DEBUG"):
         logger.debug(f"connecting to local sqlite db {db_path}")
     os.makedirs(AGENTSEA_DB_DIR, exist_ok=True)
-    engine = create_engine(f"sqlite:///{db_path}")
+    try:
+        engine = create_engine(f"sqlite:///{db_path}")
+    except Exception as e:
+        logger.error(f"error connecting to sqlite db {db_path}: {e}")
+        raise e
     return engine
 
 
