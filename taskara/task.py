@@ -14,6 +14,7 @@ import shortuuid
 from cryptography.fernet import Fernet
 from devicebay import V1Device, V1DeviceType
 from mllm import Prompt, V1Prompt
+from orign import V1ChatEvent
 from PIL import Image
 from pydantic import BaseModel
 from skillpacks import (
@@ -810,7 +811,7 @@ class Task(WithDB):
         tool: V1ToolRef,
         result: Optional[Any] = None,
         end_state: Optional[EnvState] = None,
-        prompt: Optional[Prompt | str] = None,
+        prompt: Optional[Prompt | str | V1ChatEvent] = None,
         namespace: str = "default",
         metadata: dict = {},
         owner_id: Optional[str] = None,
