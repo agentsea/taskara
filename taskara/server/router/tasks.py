@@ -527,6 +527,7 @@ async def record_action(
     task_id: str,
     data: V1ActionEvent,
 ):
+    print(f"post recieved for record_action for task {task_id} and action {data.id} event_order {data.event_order}", flush=True)
     owners = [current_user.email] + [
         key for key, value in current_user.organizations.items()
         if value.get("role") in {"org:admin", "org:member", "org:agent"}
