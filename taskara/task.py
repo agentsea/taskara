@@ -1695,6 +1695,7 @@ class Task(WithDB):
                     self._parent_id = v1.parent_id
                     self._public = v1.public
                     self._skill = v1.skill
+                    self._labels = v1.labels
                     self._review_requirements = [
                         ReviewRequirement.from_v1(requirement)
                         for requirement in v1.review_requirements
@@ -1746,7 +1747,7 @@ class Task(WithDB):
             self._prompts = task._prompts
             self._public = task._public
             self._skill = task._skill
-
+            self._labels = task._labels
             self._episode = self._get_episode(
                 task_id=self.id,
                 remote=None,
