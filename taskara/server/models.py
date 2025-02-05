@@ -69,6 +69,7 @@ class V1ReviewMany(BaseModel):
 
 class V1TaskUpdate(BaseModel):
     status: Optional[str] = None
+    org: Optional[str] = None
     description: Optional[str] = None
     max_steps: Optional[int] = None
     error: Optional[str] = None

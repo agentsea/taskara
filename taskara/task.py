@@ -1652,7 +1652,10 @@ class Task(WithDB):
         obj._skill = v1.skill
         obj._auth_token = auth_token if auth_token else v1.auth_token
         obj._episode = Episode()  # episode doesn't matter for only remote action calls
-        obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
+        if v1.threads:
+            obj._threads = [RoleThread.from_v1(s) for s in v1.threads]
+        else:
+            obj._threads = [RoleThread(owner_id=owner_id, name="feed")]
         obj._prompts = []
 
         return obj
