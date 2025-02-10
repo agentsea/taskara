@@ -22,6 +22,7 @@ from skillpacks import (
     EnvState,
     Episode,
     Review,
+    Reviewable,
     V1Action,
     V1Episode,
     V1ToolRef,
@@ -818,6 +819,7 @@ class Task(WithDB):
         model: Optional[str] = None,
         agent_id: Optional[str] = None,
         action_opts: Optional[List[ActionOpt]] = None,
+        reviewables: Optional[List[Reviewable[Any, Any]]] = None,
     ) -> ActionEvent:
         if not owner_id:
             owner_id = self.owner_id
@@ -841,6 +843,7 @@ class Task(WithDB):
                     model=model,
                     agent_id=agent_id,
                     action_opts=action_opts,
+                    reviewables=reviewables,
                 )
                 data = event.to_v1().model_dump()
                 self._remote_request(
@@ -872,6 +875,7 @@ class Task(WithDB):
             model=model,
             agent_id=agent_id,
             action_opts=action_opts,
+            reviewables=reviewables,
         )
 
     @property
