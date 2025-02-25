@@ -131,7 +131,7 @@ class V1Task(BaseModel):
     created: float = Field(default_factory=time.time)
     started: float = 0.0
     completed: float = 0.0
-    created_by: str
+    created_by: Optional[str] = ''
     error: Optional[str] = None
     output: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = {}
