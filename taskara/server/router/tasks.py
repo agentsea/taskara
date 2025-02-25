@@ -111,6 +111,7 @@ async def create_task(
         device_type=data.device_type,
         owner_id=owner_id,
         description=data.description,
+        created_by=data.created_by or current_user.email,
         status=task_status,
         parameters=data.parameters if data.parameters else {},
         assigned_to=data.assigned_to,

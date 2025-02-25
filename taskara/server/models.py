@@ -97,6 +97,7 @@ class V1CreateTask(BaseModel):
     created: float = Field(default_factory=time.time)
     started: float = 0.0
     completed: float = 0.0
+    created_by: Optional[str] = None
     error: Optional[str] = None
     output: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = {}
@@ -130,6 +131,7 @@ class V1Task(BaseModel):
     created: float = Field(default_factory=time.time)
     started: float = 0.0
     completed: float = 0.0
+    created_by: str
     error: Optional[str] = None
     output: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = {}
@@ -161,6 +163,7 @@ class V1SearchTask(BaseModel):
     assigned_to: Optional[str] = None
     assigned_type: Optional[str] = None
     created: Optional[float] = None
+    created_by: Optional[str] = None
     started: Optional[float] = None
     completed: Optional[float] = None
     error: Optional[str] = None

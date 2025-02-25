@@ -96,6 +96,7 @@ class Task(WithDB):
         created: Optional[float] = None,
         started: float = 0.0,
         completed: float = 0.0,
+        created_by: str = '',
         threads: List[RoleThread] = [],
         prompts: List[Prompt] = [],
         assigned_to: Optional[str] = None,
@@ -125,6 +126,7 @@ class Task(WithDB):
         self._device_type = device_type
         self._status = status
         self._created = created if created is not None else time.time()
+        self._created_by = created_by
         self._started = started
         self._completed = completed
         self._assigned_to = assigned_to
@@ -333,6 +335,14 @@ class Task(WithDB):
         self._created = value
 
     @property
+    def created_by(self) -> str:
+        return self._created_by
+
+    @created_by.setter
+    def created_by(self, value: str):
+        self._created_by = value
+
+    @property
     def started(self) -> float:
         return self._started
 
@@ -499,6 +509,7 @@ class Task(WithDB):
             review_requirements=json.dumps(requirement_ids),
             status=self._status.value,
             created=self._created,
+            created_by=self._created_by,
             started=self._started,
             completed=self._completed,
             assigned_to=self._assigned_to,
@@ -569,6 +580,7 @@ class Task(WithDB):
         obj._review_requirements = review_reqs
         obj._status = TaskStatus(record.status)
         obj._created = record.created
+        obj._created_by = record.created_by
         obj._started = record.started
         obj._completed = record.completed
         obj._assigned_to = record.assigned_to
@@ -642,6 +654,7 @@ class Task(WithDB):
         obj._review_requirements = taskReviewRequirements
         obj._status = TaskStatus(record.status)
         obj._created = record.created
+        obj._created_by = record.created_by
         obj._started = record.started
         obj._completed = record.completed
         obj._assigned_to = record.assigned_to
@@ -1500,6 +1513,7 @@ class Task(WithDB):
             prompts=[p.id for p in self._prompts],
             status=self._status.value,
             created=self._created,
+            created_by=self._created_by,
             started=self._started,
             completed=self._completed,
             assigned_to=self._assigned_to,
@@ -1562,6 +1576,7 @@ class Task(WithDB):
         obj._expect_schema = v1.expect_schema
         obj._status = task_status
         obj._created = v1.created
+        obj._created_by = v1.created_by
         obj._started = v1.started
         obj._completed = v1.completed
         obj._assigned_to = v1.assigned_to
@@ -1636,6 +1651,7 @@ class Task(WithDB):
         obj._expect_schema = v1.expect_schema
         obj._status = task_status
         obj._created = v1.created
+        obj._created_by = v1.created_by
         obj._started = v1.started
         obj._completed = v1.completed
         obj._assigned_to = v1.assigned_to
@@ -1687,6 +1703,7 @@ class Task(WithDB):
                     self._expect_schema = v1.expect_schema
                     self._status = task_status
                     self._created = v1.created
+                    self._created_by = v1.created_by
                     self._started = v1.started
                     self._completed = v1.completed
                     self._assigned_to = v1.assigned_to
@@ -1736,6 +1753,7 @@ class Task(WithDB):
             self._expect_schema = task._expect_schema
             self._status = task._status
             self._created = task._created
+            self._created_by = task._created_by
             self._started = task._started
             self._completed = task._completed
             self._assigned_to = task._assigned_to

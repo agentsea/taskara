@@ -86,6 +86,7 @@ class TaskRecord(Base):
     created = Column(Float, nullable=False)
     started = Column(Float, nullable=False, default=0.0)
     completed = Column(Float, nullable=False, default=0.0)
+    created_by = Column(String, nullable=False)
     error = Column(String, nullable=True)
     output = Column(String, nullable=True)
     threads = Column(String, nullable=False)
