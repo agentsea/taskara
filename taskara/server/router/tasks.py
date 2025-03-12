@@ -284,8 +284,18 @@ async def update_task(
     logger.debug(f"found task: {task.__dict__}")
     if data.description:
         task.description = data.description
-    if data.status:
+    if data.status and TaskStatus(data.status) != task.status:
         task.status = TaskStatus(data.status)
+        # Ensure `completed` is added if the status changed but wasn't set.
+        if task.is_done():
+            if not data.completed and not task.completed:
+                task.completed = time.time()
+
+            is_agent_task = task.assigned_type != "user"
+            has_no_actions = not task.episode or len(task.episode.actions) == 0
+            # if an agent task get's switched to a final status with no actions, a review is not needed
+            if is_agent_task and has_no_actions and "can_review" not in task.labels:
+                task.labels["can_review"] = "false"
     if data.assigned_to is not None:
         task.assigned_to = data.assigned_to
     if data.assigned_type is not None:
