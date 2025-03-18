@@ -69,6 +69,9 @@ class TaskRecord(Base):
     __table_args__ = (
         Index("idx_tasks_owner_id", "owner_id"),
         Index("idx_tasks_status", "status"),
+        Index("idx_tasks_owner_id_skill", "owner_id", "skill"),
+        Index("idx_tasks_skill_assigned_type", "skill", "assigned_type"),
+        Index("idx_tasks_skill_assigned_type_completed", "skill", "assigned_type", "completed"),
     )
     id = Column(String, primary_key=True)
     owner_id = Column(String, nullable=True)

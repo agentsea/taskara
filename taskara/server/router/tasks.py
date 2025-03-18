@@ -286,7 +286,14 @@ async def update_task(
         task.description = data.description
     if data.status and TaskStatus(data.status) != task.status:
         task.status = TaskStatus(data.status)
+        # Ensure `started` is added if the status changed but wasn't set.
+        if task.status == TaskStatus.IN_PROGRESS.value:
+            if not data.started and not task.started:
+                task.started = time.time()
         # Ensure `completed` is added if the status changed but wasn't set.
+        if task.status == TaskStatus.REVIEW.value:
+            if not data.completed and not task.completed:
+                task.completed = time.time()
         if task.is_done():
             if not data.completed and not task.completed:
                 task.completed = time.time()

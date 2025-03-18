@@ -77,6 +77,7 @@ class V1TaskUpdate(BaseModel):
     assigned_to: Optional[str] = None
     assigned_type: Optional[str] = None
     completed: Optional[float] = None
+    started: Optional[float] = None
     version: Optional[str] = None
     set_labels: Optional[Dict[str, str]] = None
 
