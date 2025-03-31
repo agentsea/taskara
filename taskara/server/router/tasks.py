@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 from typing import Annotated, List, Optional
@@ -19,8 +20,10 @@ from skillpacks.server.models import (
     V1Episode,
     V1Review,
 )
+from taskara.util import check_openmeter_agent_tasks
 from threadmem import RoleMessage, RoleThread, V1RoleThread, V1RoleThreads
-
+from openmeter import Client
+from azure.core.exceptions import ResourceNotFoundError
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
 from taskara.db.redis_connection import get_redis_client, stream_action_recorded
@@ -49,6 +52,8 @@ from taskara.server.models import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+openmeter_secret = os.getenv("OPENMETER_SECRET", False)
+openmeter_agent_task_feature = os.getenv("OPENMETER_AGENT_TASK_FEATURE")
 
 @router.post("/v1/tasks", response_model=V1Task)
 async def create_task(
@@ -75,7 +80,14 @@ async def create_task(
                 status_code=500,
                 detail=f"You {current_user.email} do not have any organizations or there is an error. If this issue persists please let us know via email: support@kentauros.ai",
             )
-
+    if data.assigned_to and data.assigned_to != "user" and openmeter_secret and owner_id:
+            entitlement_allowed = check_openmeter_agent_tasks(owner_id)
+            if entitlement_allowed is False:
+                print(f"entitlement access denied in creating task assigned to an agent for feature {openmeter_agent_task_feature}, for subject {owner_id} it is likely that the entitlement is no longer valid or the user/org has reached their cap #slack-alert")
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"entitlement access denied for {owner_id}, user/org has likely reached their cap on agent tasks please contact support #slack-alert"
+                )
     episode = None
     if data.episode_id:
         episodes = Episode.find(id=data.episode_id, owner_id=owner_id)
@@ -305,6 +317,14 @@ async def update_task(
                 task.labels["can_review"] = "false"
     if data.assigned_to is not None:
         task.assigned_to = data.assigned_to
+        if data.assigned_to != "user" and openmeter_secret and task.owner_id:
+            entitlement_allowed = check_openmeter_agent_tasks(task.owner_id)
+            if entitlement_allowed is False:
+                print(f"entitlement access denied in assigning task to agent for feature {openmeter_agent_task_feature}, for subject {task.owner_id} it is likely that the entitlement is no longer valid or the user/org has reached their cap #slack-alert")
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"entitlement access denied for {task.owner_id}, user/org has likely reached their cap on agent tasks please contact support #slack-alert"
+                )
     if data.assigned_type is not None:
         task.assigned_type = data.assigned_type
     if data.error:

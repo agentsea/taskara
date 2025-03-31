@@ -3,6 +3,21 @@ import socket
 import string
 import subprocess
 from typing import Optional
+from openmeter import Client
+from azure.core.exceptions import ResourceNotFoundError
+import os
+
+openmeter_secret = os.getenv("OPENMETER_SECRET", False)
+openmeter_agent_task_feature = os.getenv("OPENMETER_AGENT_TASK_FEATURE")
+# TODO really figure out if this initiates a connection, I think not but should make sure somehow
+if openmeter_secret: 
+    openmeter_client = Client(
+        endpoint="https://openmeter.cloud",
+        headers={
+        "Accept": "application/json",
+        "Authorization": f"Bearer {openmeter_secret}",
+        },
+    )
 
 
 def generate_random_string(length: int = 8):
@@ -55,3 +70,27 @@ def find_open_port(start_port: int = 1024, end_port: int = 65535) -> Optional[in
             except socket.error:
                 continue  # Port is in use, try the next one
     return None  # No open port found
+
+def check_openmeter_agent_tasks(owner_id) -> bool:
+    if openmeter_secret:
+        if not openmeter_agent_task_feature or not openmeter_client:
+            raise ValueError('Cannot create desktop no openmeter secret or client or openmeter_agent_task_feature to get entitlements from')
+
+        entitlement_value = {}
+        try:
+            # Check openmeter for if user has access through an entitlement
+            entitlement_value = openmeter_client.get_entitlement_value(
+                subject_id_or_key=owner_id,
+                entitlement_id_or_feature_key=openmeter_agent_task_feature
+            )
+        
+        except ResourceNotFoundError as e:
+            print(
+                f"#slack-alert Feature {openmeter_agent_task_feature} not found for subject {owner_id}: {e}"
+            )
+            return False
+        if not entitlement_value or not entitlement_value["hasAccess"]:
+            print(f"entitlement access denied in assigning task to agent for feature {openmeter_agent_task_feature}, for subject {owner_id} it is likely that the entitlement is no longer valid or the user/org has reached their cap #slack-alert")
+            return False
+        print(f"user: {owner_id} agent task entitlement values are {entitlement_value}", flush=True)
+    return True
