@@ -815,6 +815,7 @@ async def fail_action(
         reviewer=review.reviewer,  # type: ignore
         reviewer_type=reviewer_type,
         reason=review.reason,
+        correction=review.correction
     )
     task.save()
     task.update_pending_reviews()
