@@ -14,7 +14,6 @@ import shortuuid
 from cryptography.fernet import Fernet
 from devicebay import V1Device, V1DeviceType
 from mllm import Prompt, V1Prompt
-from orign import V1ChatEvent
 from PIL import Image
 from pydantic import BaseModel
 from skillpacks import (
@@ -28,6 +27,7 @@ from skillpacks import (
     V1ToolRef,
 )
 from skillpacks.action_opts import ActionOpt
+from skillpacks.chat import V1ChatEvent
 from skillpacks.review import Resource
 from sqlalchemy.orm import contains_eager, joinedload
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
