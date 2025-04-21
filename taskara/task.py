@@ -1297,6 +1297,7 @@ class Task(WithDB):
         tags: Optional[List[str]] = None,
         labels: Optional[Dict[str, str]] = None,
         statuses: Optional[List[str]] = None,
+        skill_ids: Optional[List[str]] = None,
     ) -> List["Task"]:
         print("[find_many_lite] Starting query...")
         # start_time = time.time()
@@ -1317,6 +1318,10 @@ class Task(WithDB):
             # Add filtering by statuses if provided
             if statuses:
                 query = query.filter(TaskRecord.status.in_(statuses))
+
+            # Add filtering by skills if provided
+            if skill_ids:
+                query = query.filter(TaskRecord.skill.in_(skill_ids))
 
             # Handle tag filtering if tags are provided
             if tags:
