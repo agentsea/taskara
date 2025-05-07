@@ -282,7 +282,7 @@ async def update_task(
     data: V1TaskUpdate,
 ):
     logger.debug(f"updating task with model: {data}")
-
+    
     owners = [current_user.email] + [
         key for key, value in current_user.organizations.items()
         if value.get("role") in {"org:admin", "org:member", "org:agent"}
@@ -292,7 +292,7 @@ async def update_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found or you do not have proper org access to make this change")
     task = task[0]
-
+    logger.info(f"updating task {task.id} with updates {data.model_dump_json()}")
     logger.debug(f"found task: {task.__dict__}")
     if data.description:
         task.description = data.description
@@ -301,13 +301,16 @@ async def update_task(
         # Ensure `started` is added if the status changed but wasn't set.
         if task.status == TaskStatus.IN_PROGRESS.value:
             if not data.started and not task.started:
+                logger.info(f"started added for task {task.id}")
                 task.started = time.time()
         # Ensure `completed` is added if the status changed but wasn't set.
         if task.status == TaskStatus.REVIEW.value:
             if not data.completed and not task.completed:
+                logger.info(f"completed added for task {task.id}")
                 task.completed = time.time()
         if task.is_done():
             if not data.completed and not task.completed:
+                logger.info(f"completed added for task {task.id}")
                 task.completed = time.time()
 
             is_agent_task = task.assigned_type != "user"
