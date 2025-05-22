@@ -345,3 +345,8 @@ class V1ActionRecordedMessage(BaseModel):
         ...,
         description="The index of the action event in order on the task. The first action event will be 0",
     )
+
+class V1TrainingCompletedMessage(BaseModel):
+    task_id: str
+    agent_type: Optional[str] = None
+    skill_id: Optional[str] = None

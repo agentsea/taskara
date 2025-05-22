@@ -26,10 +26,11 @@ from openmeter import Client
 from azure.core.exceptions import ResourceNotFoundError
 from taskara import Task, TaskStatus
 from taskara.auth.transport import get_user_dependency
-from taskara.db.redis_connection import get_redis_client, stream_action_recorded
+from taskara.db.redis_connection import get_redis_client, stream_action_recorded, stream_training_completed
 from taskara.img import convert_images_async
 from taskara.review import PendingReviewers, ReviewRequirement
 from taskara.server.models import (
+    V1TrainingCompletedMessage,
     V1ActionRecordedMessage,
     V1AddThread,
     V1CreateAnnotationResponse,
@@ -339,6 +340,15 @@ async def update_task(
     if data.set_labels:
         for key, value in data.set_labels.items():
             task.labels[key] = value
+            if key == "foo/train/status" and value == "finished": #TODO we need a better method of streaming completed task trainings
+                redis_client = get_redis_client()
+                message = V1TrainingCompletedMessage(
+                    task_id=task.id,
+                    agent_type=task.assigned_type,
+                    skill_id=task.skill
+                ).model_dump_json()
+                if redis_client:
+                    redis_client.xadd(stream_training_completed, {"message": message}, '*')
 
     logger.debug(f"saving task: {task.__dict__}")
     task.save()
