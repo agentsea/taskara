@@ -348,7 +348,7 @@ async def update_task(
                     skill_id=task.skill
                 ).model_dump_json()
                 if redis_client:
-                    redis_client.xadd(stream_training_completed, {"message": message}, '*')
+                    await redis_client.xadd(stream_training_completed, {"message": message}, '*')
 
     logger.debug(f"saving task: {task.__dict__}")
     task.save()
