@@ -132,6 +132,7 @@ async def create_task(
         review_requirements=review_reqs,
         labels=data.labels if data.labels else {},
         tags=data.tags if data.tags else [],
+        skill=data.skill,
         episode=episode,
     )
     logger.debug(f"saved task: {task.id}")
