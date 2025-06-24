@@ -1409,6 +1409,8 @@ class Task(WithDB):
         tags: Optional[List[str]] = None,
         labels: Optional[Dict[str, str]] = None,
         review_approval: Optional[str] = None,
+        statuses: Optional[List[str]] = None,
+        is_final_status: Optional[bool] = None,
         **kwargs,
     ) -> List["Task"]:
         if remote:
@@ -1487,6 +1489,14 @@ class Task(WithDB):
                             (ReviewRecord.resource_id == TaskRecord.id) &
                             (ReviewRecord.resource_type == Resource.TASK.value)
                         )
+                if statuses:
+                    query = query.filter(TaskRecord.status.in_(statuses))
+                if is_final_status is not None:
+                    final_status_values = [status.value for status in FINAL_STATUSES]
+                    if is_final_status:
+                        query = query.filter(TaskRecord.status.in_(final_status_values))
+                    else:
+                        query = query.filter(TaskRecord.status.not_in(final_status_values))
 
                 # Apply sorting by creation date and retrieve the records
                 records = query.order_by(TaskRecord.created.desc()).all()

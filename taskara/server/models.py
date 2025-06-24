@@ -162,6 +162,8 @@ class V1SearchTask(BaseModel):
     # device: Optional[V1Device]
     # device_type: Optional[V1DeviceType]
     status: Optional[str] = None
+    statuses: Optional[List[str]] = None
+    is_final_status: Optional[bool] = None
     owners: Optional[List[str]] = None
     # threads: Optional[List[V1RoleThread]]
     # prompts: Optional[List[str]]
