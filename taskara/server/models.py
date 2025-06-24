@@ -1,3 +1,4 @@
+from enum import Enum
 import time
 from typing import Any, Dict, List, Optional
 
@@ -148,6 +149,11 @@ class V1Task(BaseModel):
     skill: Optional[str] = None
     auth_token: Optional[str] = None
 
+class ReviewApproval(str, Enum):
+    """search/find task review approval values"""
+    ALL = 'all'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
 
 class V1SearchTask(BaseModel):
     id: Optional[str] = None
@@ -181,6 +187,7 @@ class V1SearchTask(BaseModel):
     public: Optional[bool] = None
     episode_id: Optional[str] = None
     auth_token: Optional[str] = None
+    review_approval: Optional[ReviewApproval] = None
 
 
 class V1Tasks(BaseModel):

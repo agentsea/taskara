@@ -8,7 +8,7 @@ import time
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, TypeVar
-
+from skillpacks.review import Resource
 import requests
 import shortuuid
 from cryptography.fernet import Fernet
@@ -26,6 +26,7 @@ from skillpacks import (
     V1Episode,
     V1ToolRef,
 )
+from skillpacks.db.models import ReviewRecord 
 from skillpacks.action_opts import ActionOpt
 from skillpacks.chat import V1ChatEvent
 from skillpacks.review import Resource
@@ -45,6 +46,7 @@ from .server.models import (
     V1Task,
     V1Tasks,
     V1TaskUpdate,
+    ReviewApproval
 )
 
 T = TypeVar("T", bound="Task")
@@ -1298,6 +1300,7 @@ class Task(WithDB):
         labels: Optional[Dict[str, str]] = None,
         statuses: Optional[List[str]] = None,
         skill_ids: Optional[List[str]] = None,
+        assigned_types: Optional[List[str]] = None,
     ) -> List["Task"]:
         print("[find_many_lite] Starting query...")
         # start_time = time.time()
@@ -1318,6 +1321,10 @@ class Task(WithDB):
             # Add filtering by statuses if provided
             if statuses:
                 query = query.filter(TaskRecord.status.in_(statuses))
+
+             # Add filtering by assigned_types if provided
+            if assigned_types:
+                query = query.filter(TaskRecord.assigned_type.in_(assigned_types))
 
             # Add filtering by skills if provided
             if skill_ids:
@@ -1401,6 +1408,7 @@ class Task(WithDB):
         owners: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         labels: Optional[Dict[str, str]] = None,
+        review_approval: Optional[str] = None,
         **kwargs,
     ) -> List["Task"]:
         if remote:
@@ -1413,6 +1421,9 @@ class Task(WithDB):
             # Add "labels" only if it's not None
             if labels:
                 json_data["labels"] = labels
+            if review_approval is not None:
+                json_data["review_approval"] = review_approval
+
             remote_response = cls._remote_request(
                 remote,
                 "POST",
@@ -1454,6 +1465,27 @@ class Task(WithDB):
                     for key, value in labels.items():
                         query = query.join(TaskRecord.labels).filter(
                             LabelRecord.key == key, LabelRecord.value == value
+                        )
+                if review_approval is not None:
+                    if review_approval == ReviewApproval.REJECTED.value:
+                        query = query.join(
+                            ReviewRecord,
+                            (ReviewRecord.resource_id == TaskRecord.id) &
+                            (ReviewRecord.resource_type == Resource.TASK.value) & 
+                            (ReviewRecord.approved == False)  # noqa: E712
+                        )
+                    elif review_approval == ReviewApproval.APPROVED.value:
+                        query = query.join(
+                            ReviewRecord,
+                            (ReviewRecord.resource_id == TaskRecord.id) &
+                            (ReviewRecord.resource_type == Resource.TASK.value) &
+                            (ReviewRecord.approved == True)  # noqa: E712
+                        )
+                    else:
+                        query = query.join(
+                            ReviewRecord,
+                            (ReviewRecord.resource_id == TaskRecord.id) &
+                            (ReviewRecord.resource_type == Resource.TASK.value)
                         )
 
                 # Apply sorting by creation date and retrieve the records
