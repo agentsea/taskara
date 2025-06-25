@@ -30,6 +30,7 @@ from skillpacks.db.models import ReviewRecord
 from skillpacks.action_opts import ActionOpt
 from skillpacks.chat import V1ChatEvent
 from skillpacks.review import Resource
+from sqlalchemy import not_
 from sqlalchemy.orm import contains_eager, joinedload
 from threadmem import RoleMessage, RoleThread, V1RoleThreads
 from threadmem.server.models import V1RoleMessage
@@ -1483,6 +1484,15 @@ class Task(WithDB):
                             (ReviewRecord.resource_type == Resource.TASK.value) &
                             (ReviewRecord.approved == True)  # noqa: E712
                         )
+                    elif review_approval == ReviewApproval.NONE.value:
+                        query = query.outerjoin(
+                            ReviewRecord,
+                            (ReviewRecord.resource_id == TaskRecord.id)
+                            & (ReviewRecord.resource_type == Resource.TASK.value)
+                        )
+
+                        # filter for “no such review”:
+                        query = query.filter(ReviewRecord.id.is_(None))
                     else:
                         query = query.join(
                             ReviewRecord,

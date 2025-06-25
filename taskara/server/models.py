@@ -154,6 +154,7 @@ class ReviewApproval(str, Enum):
     ALL = 'all'
     APPROVED = 'approved'
     REJECTED = 'rejected'
+    NONE = 'none'
 
 class V1SearchTask(BaseModel):
     id: Optional[str] = None
